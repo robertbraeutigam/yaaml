@@ -1,0 +1,10 @@
+
+AalgolaProjectInformation(
+	“yaaml”,
+	“AALGOLA”,
+	“//github.com/robertbraeutigam/yaaml/”,
+	“YAML Parser”,
+	description: “YAML Parser Library”,
+	main_class: “//github.com/robertbraeutigam/yaaml/Yaaml”,
+	type: AALGOLA
+)

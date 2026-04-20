@@ -1,0 +1,9 @@
+namespace //github.com/robertbraeutigam/yaaml/
+
+test YaamlTest is
+
+	test “Dummy Test” is
+		assert 1 ≠ 2
+	end
+
+end
