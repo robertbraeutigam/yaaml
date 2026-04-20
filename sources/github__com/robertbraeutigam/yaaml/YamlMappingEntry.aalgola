@@ -1,0 +1,23 @@
+
+namespace //github.com/robertbraeutigam/yaaml/
+
+⟦public⟧
+object YamlMappingEntry ⁌
+	A single key/value pair within a <c>YamlMapping</c>.
+⁍ is
+
+	⟦public⟧
+	⟦final⟧
+	key : YamlValue
+
+	⟦public⟧
+	⟦final⟧
+	value : YamlValue
+
+	⟦public⟧
+	init (key : YamlValue, value : YamlValue) is
+		self.key ← key
+		self.value ← value
+	end
+
+end object
