@@ -24,3 +24,7 @@ aatest --modules test/target/classes/
 aalgola --modules target/classes/ //github.com/robertbraeutigam/yaaml/Yaaml
 ```
 
+## Note on Aalgola
+
+The language itself is still under development. It can produce weird errors, unimplemented functions/methods
+or even syntax errors where there is none.
