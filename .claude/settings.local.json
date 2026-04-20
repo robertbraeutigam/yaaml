@@ -5,7 +5,11 @@
       "Bash(aalgolac *)",
       "Bash(aatest *)",
       "Read(//home/robert/aalgola/**)",
-      "Read(//home/robert/aalgola/aadk/**)"
+      "Read(//home/robert/aalgola/aadk/**)",
+      "Bash(~/.claude/skills/aalgola/bin/aairs-sig //aalgola.org/core/intrinsic/string/)",
+      "Bash(~/.claude/skills/aalgola/bin/aairs-sig String)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)"
     ]
   }
 }
