@@ -18,4 +18,10 @@ object YamlScalar isa YamlValue ⁌
 		self.content ← content
 	end
 
+	⟦public⟧
+	⟦override⟧
+	method display() → String is
+		return content
+	end
+
 end object

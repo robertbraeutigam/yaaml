@@ -1,0 +1,38 @@
+
+namespace //github.com/robertbraeutigam/yaaml/
+
+import //aalgola.org/core/collection/cdt/array/Array
+
+⟦public⟧
+object YamlSequence isa YamlValue ⁌
+	A YAML sequence: an ordered list of YAML values.
+⁍ is
+
+	⟦public⟧
+	⟦final⟧
+	items : Array⟦YamlValue⟧ ⁌
+		The ordered items of this sequence.
+	⁍
+
+	⟦public⟧
+	init (items : Array⟦YamlValue⟧) is
+		self.items ← items
+	end
+
+	⟦public⟧
+	⟦override⟧
+	method display() → String is
+		result : String ← “[”
+		first :← TRUE
+		for item ∈ items do
+			if ¬ first then
+				result ← result ⋅ “, ”
+			end
+			first ← FALSE
+			result ← result ⋅ item.display()
+		end
+		result ← result ⋅ “]”
+		return result
+	end
+
+end object

@@ -1,27 +1,79 @@
 
 namespace //github.com/robertbraeutigam/yaaml/
 
+import //aalgola.org/core/collection/cdt/array/Array
+import //aalgola.org/core/collection/cdt/array/ArrayBuilder
+
 ⟦public⟧
 library YamlParser ⁌
 	Parser for YAML documents.
 ⁍ is
 
 	⟦public⟧
-	function parse(input : String) → YamlScalar ⁌
+	function parse(input : String) → YamlValue ⁌
 		Parses the given YAML input and returns the root value.
-		Recognises a single plain scalar, optionally wrapped in matching
-		ASCII double or single quotes. Escape sequences inside quoted
-		strings are not yet processed.
+		Recognises plain scalars (optionally wrapped in ASCII single
+		or double quotes) and flow sequences of the form <c>[a, b, c]</c>
+		with arbitrary nesting. Escape sequences inside quoted strings
+		are not yet processed.
 	⁍ is
 		trimmed :← input.trimSpaces()
+		if isWrapped(trimmed, “[”, “]”) then
+			return parseFlowSequence(trimmed)
+		end
+		return parseScalar(trimmed)
+	end
+
+	function parseScalar(trimmed : String) → YamlScalar is
 		if isQuoted(trimmed, “"”) ⩒ isQuoted(trimmed, “'”) then
 			return YamlScalar(trimmed.substring(trimmed.firstIndex() + 1, trimmed.lastIndex() − 1))
 		end
 		return YamlScalar(trimmed)
 	end
 
+	function parseFlowSequence(trimmed : String) → YamlSequence is
+		builder :← ArrayBuilder⟦YamlValue⟧()
+		if ∣trimmed∣ > 2 then
+			inner :← trimmed.substring(trimmed.firstIndex() + 1, trimmed.lastIndex() − 1).trimSpaces()
+			if ¬ inner.isEmpty() then
+				for part ∈ splitTopLevel(inner) do
+					builder.append(parse(part))
+				end
+			end
+		end
+		return YamlSequence(builder.done())
+	end
+
+	function splitTopLevel(inner : String) → Array⟦String⟧ ⁌
+		Splits <c>inner</c> on top-level commas, preserving commas that
+		occur inside nested flow collections.
+	⁍ is
+		parts :← ArrayBuilder⟦String⟧()
+		n :← ∣inner∣
+		depth :← 0
+		start : StringIndex ← inner.firstIndex()
+		for i ∈ ⟨0, …, n − 1⟩ do
+			idx :← StringIndex(i)
+			ch :← inner.substring(idx, idx + 1)
+			if ch = “[” then
+				depth ← depth + 1
+			elseif ch = “]” then
+				depth ← depth − 1
+			elseif ch = “,” ⩑ depth = 0 then
+				parts.append(inner.substring(start, idx).trimSpaces())
+				start ← idx + 1
+			end
+		end
+		parts.append(inner.substring(start, inner.lastIndex()).trimSpaces())
+		return parts.done()
+	end
+
 	function isQuoted(s : String, quote : String) → 𝔹 is
 		return ∣s∣ ≥ 2 ⩑ s.startsWith(quote) ⩑ s.endsWith(quote)
+	end
+
+	function isWrapped(s : String, open : String, close : String) → 𝔹 is
+		return ∣s∣ ≥ 2 ⩑ s.startsWith(open) ⩑ s.endsWith(close)
 	end
 
 end library

@@ -7,27 +7,47 @@ test YaamlTest is
 
 	test “parses a plain scalar” is
 		result :← YamlParser.parse(“hello”)
-		assert result.content = “hello”
+		assert result.display() = “hello”
 	end
 
 	test “trims surrounding whitespace around a scalar” is
 		result :← YamlParser.parse(“  hello  ”)
-		assert result.content = “hello”
+		assert result.display() = “hello”
 	end
 
 	test “parses a double-quoted scalar keeping inner whitespace” is
 		result :← YamlParser.parse(“"hello world"”)
-		assert result.content = “hello world”
+		assert result.display() = “hello world”
 	end
 
 	test “parses a single-quoted scalar keeping inner punctuation” is
 		result :← YamlParser.parse(“'key: value, 42!'”)
-		assert result.content = “key: value, 42!”
+		assert result.display() = “key: value, 42!”
 	end
 
 	test “trims whitespace around a quoted scalar” is
 		result :← YamlParser.parse(“  "padded"  ”)
-		assert result.content = “padded”
+		assert result.display() = “padded”
+	end
+
+	test “parses an empty flow sequence” is
+		result :← YamlParser.parse(“[]”)
+		assert result.display() = “[]”
+	end
+
+	test “parses a flow sequence of scalars” is
+		result :← YamlParser.parse(“[a, b, c]”)
+		assert result.display() = “[a, b, c]”
+	end
+
+	test “tolerates loose whitespace around flow sequence elements” is
+		result :← YamlParser.parse(“  [ a ,  b ,c  ]  ”)
+		assert result.display() = “[a, b, c]”
+	end
+
+	test “parses nested flow sequences” is
+		result :← YamlParser.parse(“[a, [b, c], d]”)
+		assert result.display() = “[a, [b, c], d]”
 	end
 
 end

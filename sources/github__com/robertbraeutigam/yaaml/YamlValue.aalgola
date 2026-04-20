@@ -6,4 +6,11 @@ interface YamlValue ⁌
 	Base type for every parsed YAML value.
 ⁍ is
 
+	⟦public⟧
+	⟦abstract⟧
+	method display() → String ⁌
+		Renders this value back to a canonical YAML-ish textual form.
+		Used primarily for tests and diagnostic output.
+	⁍
+
 end interface
