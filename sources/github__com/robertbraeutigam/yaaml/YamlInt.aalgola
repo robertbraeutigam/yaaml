@@ -1,0 +1,28 @@
+
+namespace //github.com/robertbraeutigam/yaaml/
+
+⟦public⟧
+object YamlInt isa YamlValue ⁌
+	A YAML integer scalar. Stores the raw textual representation so
+	it can be re-emitted exactly; numeric conversion is the caller's
+	concern for this iteration.
+⁍ is
+
+	⟦public⟧
+	⟦final⟧
+	text : String ⁌
+		Raw textual representation of the integer (e.g. <c>42</c>, <c>-7</c>).
+	⁍
+
+	⟦public⟧
+	init (text : String) is
+		self.text ← text
+	end
+
+	⟦public⟧
+	⟦override⟧
+	method display() → String is
+		return text
+	end
+
+end object

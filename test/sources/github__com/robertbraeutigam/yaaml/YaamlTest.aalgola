@@ -80,4 +80,69 @@ test YaamlTest is
 		assert result.display() = “[{a: 1}, {b: 2}]”
 	end
 
+	test “resolves plain true as a YAML boolean” is
+		result :← YamlParser.parse(“true”)
+		assert result.display() = “true”
+	end
+
+	test “resolves plain false as a YAML boolean” is
+		result :← YamlParser.parse(“false”)
+		assert result.display() = “false”
+	end
+
+	test “normalises uppercase TRUE to canonical true” is
+		result :← YamlParser.parse(“TRUE”)
+		assert result.display() = “true”
+	end
+
+	test “resolves plain null as YAML null” is
+		result :← YamlParser.parse(“null”)
+		assert result.display() = “null”
+	end
+
+	test “resolves tilde as YAML null” is
+		result :← YamlParser.parse(“~”)
+		assert result.display() = “null”
+	end
+
+	test “resolves a decimal integer as YAML int” is
+		result :← YamlParser.parse(“42”)
+		assert result.display() = “42”
+	end
+
+	test “resolves a negative integer as YAML int” is
+		result :← YamlParser.parse(“-7”)
+		assert result.display() = “-7”
+	end
+
+	test “resolves a decimal float as YAML float” is
+		result :← YamlParser.parse(“3.14”)
+		assert result.display() = “3.14”
+	end
+
+	test “resolves scientific-notation float” is
+		result :← YamlParser.parse(“-1.5e-3”)
+		assert result.display() = “-1.5e-3”
+	end
+
+	test “keeps a double-quoted number as a string” is
+		result :← YamlParser.parse(“"42"”)
+		assert result.display() = “42”
+	end
+
+	test “keeps a single-quoted boolean as a string” is
+		result :← YamlParser.parse(“'true'”)
+		assert result.display() = “true”
+	end
+
+	test “resolves typed scalars inside a flow sequence” is
+		result :← YamlParser.parse(“[true, 42, 3.14, null, hello]”)
+		assert result.display() = “[true, 42, 3.14, null, hello]”
+	end
+
+	test “resolves typed scalars inside a flow mapping” is
+		result :← YamlParser.parse(“{flag: true, count: 7, ratio: 0.5, nothing: ~}”)
+		assert result.display() = “{flag: true, count: 7, ratio: 0.5, nothing: null}”
+	end
+
 end

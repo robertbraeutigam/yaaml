@@ -1,0 +1,22 @@
+
+namespace //github.com/robertbraeutigam/yaaml/
+
+⟦public⟧
+object YamlNull isa YamlValue ⁌
+	A YAML null scalar. Produced by the core-schema resolution of
+	plain scalars like <c>null</c>, <c>Null</c>, <c>NULL</c>, <c>~</c>,
+	or an empty value. Canonicalises to <c>null</c> on display.
+⁍ is
+
+	⟦public⟧
+	init () is
+		pass
+	end
+
+	⟦public⟧
+	⟦override⟧
+	method display() → String is
+		return “null”
+	end
+
+end object

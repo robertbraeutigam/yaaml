@@ -1,0 +1,31 @@
+
+namespace //github.com/robertbraeutigam/yaaml/
+
+⟦public⟧
+object YamlBool isa YamlValue ⁌
+	A YAML boolean scalar. Produced by the core-schema resolution of
+	plain scalars like <c>true</c>, <c>True</c>, <c>TRUE</c>, <c>false</c>,
+	<c>False</c>, <c>FALSE</c>. Canonicalises to lowercase on display.
+⁍ is
+
+	⟦public⟧
+	⟦final⟧
+	value : 𝔹 ⁌
+		The boolean value.
+	⁍
+
+	⟦public⟧
+	init (value : 𝔹) is
+		self.value ← value
+	end
+
+	⟦public⟧
+	⟦override⟧
+	method display() → String is
+		if value then
+			return “true”
+		end
+		return “false”
+	end
+
+end object
