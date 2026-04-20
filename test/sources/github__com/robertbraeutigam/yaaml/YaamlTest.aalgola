@@ -15,4 +15,19 @@ test YaamlTest is
 		assert result.content = “hello”
 	end
 
+	test “parses a double-quoted scalar keeping inner whitespace” is
+		result :← YamlParser.parse(“"hello world"”)
+		assert result.content = “hello world”
+	end
+
+	test “parses a single-quoted scalar keeping inner punctuation” is
+		result :← YamlParser.parse(“'key: value, 42!'”)
+		assert result.content = “key: value, 42!”
+	end
+
+	test “trims whitespace around a quoted scalar” is
+		result :← YamlParser.parse(“  "padded"  ”)
+		assert result.content = “padded”
+	end
+
 end

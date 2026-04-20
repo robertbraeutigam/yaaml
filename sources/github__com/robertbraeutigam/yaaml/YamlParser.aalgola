@@ -9,11 +9,19 @@ library YamlParser ⁌
 	⟦public⟧
 	function parse(input : String) → YamlScalar ⁌
 		Parses the given YAML input and returns the root value.
-		In this iteration only a single plain scalar is recognised; the
-		returned value contains the input with surrounding whitespace
-		stripped.
+		Recognises a single plain scalar, optionally wrapped in matching
+		ASCII double or single quotes. Escape sequences inside quoted
+		strings are not yet processed.
 	⁍ is
-		return YamlScalar(input.trimSpaces())
+		trimmed :← input.trimSpaces()
+		if isQuoted(trimmed, “"”) ⩒ isQuoted(trimmed, “'”) then
+			return YamlScalar(trimmed.substring(trimmed.firstIndex() + 1, trimmed.lastIndex() − 1))
+		end
+		return YamlScalar(trimmed)
+	end
+
+	function isQuoted(s : String, quote : String) → 𝔹 is
+		return ∣s∣ ≥ 2 ⩑ s.startsWith(quote) ⩑ s.endsWith(quote)
 	end
 
 end library

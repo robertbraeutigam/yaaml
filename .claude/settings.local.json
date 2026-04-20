@@ -3,7 +3,9 @@
     "allow": [
       "Bash(aalgolac --compile-all --source-path sources/ --target target/classes/)",
       "Bash(aalgolac *)",
-      "Bash(aatest *)"
+      "Bash(aatest *)",
+      "Read(//home/robert/aalgola/**)",
+      "Read(//home/robert/aalgola/aadk/**)"
     ]
   }
 }
