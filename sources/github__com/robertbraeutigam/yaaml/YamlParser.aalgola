@@ -13,13 +13,17 @@ library YamlParser ⁌
 	function parse(input : String) → YamlValue ⁌
 		Parses the given YAML input and returns the root value.
 		Recognises plain scalars (optionally wrapped in ASCII single
-		or double quotes) and flow sequences of the form <c>[a, b, c]</c>
-		with arbitrary nesting. Escape sequences inside quoted strings
-		are not yet processed.
+		or double quotes), flow sequences of the form <c>[a, b, c]</c>,
+		and flow mappings of the form <c>{k: v, …}</c>, all with
+		arbitrary nesting. Escape sequences inside quoted strings are
+		not yet processed.
 	⁍ is
 		trimmed :← input.trimSpaces()
 		if isWrapped(trimmed, “[”, “]”) then
 			return parseFlowSequence(trimmed)
+		end
+		if isWrapped(trimmed, “{”, “}”) then
+			return parseFlowMapping(trimmed)
 		end
 		return parseScalar(trimmed)
 	end
@@ -44,9 +48,25 @@ library YamlParser ⁌
 		return YamlSequence(builder.done())
 	end
 
+	function parseFlowMapping(trimmed : String) → YamlMapping is
+		builder :← ArrayBuilder⟦YamlMappingEntry⟧()
+		if ∣trimmed∣ > 2 then
+			inner :← trimmed.substring(trimmed.firstIndex() + 1, trimmed.lastIndex() − 1).trimSpaces()
+			if ¬ inner.isEmpty() then
+				for part ∈ splitTopLevel(inner) do
+					colon :← findTopLevelColon(part)
+					key :← parse(part.substring(part.firstIndex(), colon))
+					value :← parse(part.substring(colon + 1, part.lastIndex()))
+					builder.append(YamlMappingEntry(key, value))
+				end
+			end
+		end
+		return YamlMapping(builder.done())
+	end
+
 	function splitTopLevel(inner : String) → Array⟦String⟧ ⁌
 		Splits <c>inner</c> on top-level commas, preserving commas that
-		occur inside nested flow collections.
+		occur inside nested flow collections (both <c>[…]</c> and <c>{…}</c>).
 	⁍ is
 		parts :← ArrayBuilder⟦String⟧()
 		n :← ∣inner∣
@@ -55,9 +75,9 @@ library YamlParser ⁌
 		for i ∈ ⟨0, …, n − 1⟩ do
 			idx :← StringIndex(i)
 			ch :← inner.substring(idx, idx + 1)
-			if ch = “[” then
+			if ch = “[” ⩒ ch = “{” then
 				depth ← depth + 1
-			elseif ch = “]” then
+			elseif ch = “]” ⩒ ch = “}” then
 				depth ← depth − 1
 			elseif ch = “,” ⩑ depth = 0 then
 				parts.append(inner.substring(start, idx).trimSpaces())
@@ -66,6 +86,26 @@ library YamlParser ⁌
 		end
 		parts.append(inner.substring(start, inner.lastIndex()).trimSpaces())
 		return parts.done()
+	end
+
+	function findTopLevelColon(s : String) → StringIndex ⁌
+		Returns the index of the first top-level <c>:</c> in <c>s</c>,
+		or <c>s.lastIndex()</c> if none is found.
+	⁍ is
+		n :← ∣s∣
+		depth :← 0
+		for i ∈ ⟨0, …, n − 1⟩ do
+			idx :← StringIndex(i)
+			ch :← s.substring(idx, idx + 1)
+			if ch = “[” ⩒ ch = “{” then
+				depth ← depth + 1
+			elseif ch = “]” ⩒ ch = “}” then
+				depth ← depth − 1
+			elseif ch = “:” ⩑ depth = 0 then
+				return idx
+			end
+		end
+		return s.lastIndex()
 	end
 
 	function isQuoted(s : String, quote : String) → 𝔹 is

@@ -50,4 +50,34 @@ test YaamlTest is
 		assert result.display() = “[a, [b, c], d]”
 	end
 
+	test “parses an empty flow mapping” is
+		result :← YamlParser.parse(“{}”)
+		assert result.display() = “{}”
+	end
+
+	test “parses a single-entry flow mapping” is
+		result :← YamlParser.parse(“{name: Alice}”)
+		assert result.display() = “{name: Alice}”
+	end
+
+	test “parses a multi-entry flow mapping with loose whitespace” is
+		result :← YamlParser.parse(“  { a : 1 , b : 2 , c : 3 }  ”)
+		assert result.display() = “{a: 1, b: 2, c: 3}”
+	end
+
+	test “parses a flow mapping whose value is a flow sequence” is
+		result :← YamlParser.parse(“{items: [x, y, z]}”)
+		assert result.display() = “{items: [x, y, z]}”
+	end
+
+	test “parses a flow mapping whose value is a flow mapping” is
+		result :← YamlParser.parse(“{outer: {inner: 1}}”)
+		assert result.display() = “{outer: {inner: 1}}”
+	end
+
+	test “parses a flow sequence of flow mappings” is
+		result :← YamlParser.parse(“[{a: 1}, {b: 2}]”)
+		assert result.display() = “[{a: 1}, {b: 2}]”
+	end
+
 end
