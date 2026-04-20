@@ -201,4 +201,53 @@ test YaamlTest is
 		assert result.display() = expected
 	end
 
+	test “comment at end of scalar is ignored” is
+		result :← YamlParser.parse(“42 # the answer”)
+		assert result.display() = “42”
+	end
+
+	test “top-level comment-only input parses as null” is
+		result :← YamlParser.parse(“# just a comment”)
+		assert result.display() = “null”
+	end
+
+	test “leading comment lines before value are ignored” is
+		input :← “# leading” ⋅ Unicode(10).toUnicode() ⋅ “# still leading” ⋅ Unicode(10).toUnicode() ⋅ “42”
+		result :← YamlParser.parse(input)
+		assert result.display() = “42”
+	end
+
+	test “comment inside a flow sequence is ignored” is
+		input :← “[a, # mid” ⋅ Unicode(10).toUnicode() ⋅ “ b, c]”
+		result :← YamlParser.parse(input)
+		assert result.display() = “[a, b, c]”
+	end
+
+	test “comment inside a flow mapping is ignored” is
+		input :← “{a: 1, # mid” ⋅ Unicode(10).toUnicode() ⋅ “ b: 2}”
+		result :← YamlParser.parse(input)
+		assert result.display() = “{a: 1, b: 2}”
+	end
+
+	test “hash without preceding space stays literal in a plain scalar” is
+		result :← YamlParser.parse(“hello#world”)
+		assert result.display() = “hello#world”
+	end
+
+	test “hash inside a double-quoted scalar stays literal” is
+		result :← YamlParser.parse(“"hello # world"”)
+		assert result.display() = “hello # world”
+	end
+
+	test “hash inside a single-quoted scalar stays literal” is
+		result :← YamlParser.parse(“'a # b'”)
+		assert result.display() = “a # b”
+	end
+
+	test “comment inside a flow-mapping value is ignored” is
+		input :← “{x: 7 # count” ⋅ Unicode(10).toUnicode() ⋅ “, y: 8}”
+		result :← YamlParser.parse(input)
+		assert result.display() = “{x: 7, y: 8}”
+	end
+
 end
