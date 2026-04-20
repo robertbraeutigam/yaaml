@@ -3,6 +3,7 @@ namespace //github.com/robertbraeutigam/yaaml/
 
 import //aalgola.org/core/collection/cdt/array/Array
 import //aalgola.org/core/collection/cdt/array/ArrayBuilder
+import //aalgola.org/core/character/Unicode
 
 ⟦public⟧
 library YamlParser ⁌
@@ -15,8 +16,9 @@ library YamlParser ⁌
 		Recognises plain scalars (optionally wrapped in ASCII single
 		or double quotes), flow sequences of the form <c>[a, b, c]</c>,
 		and flow mappings of the form <c>{k: v, …}</c>, all with
-		arbitrary nesting. Escape sequences inside quoted strings are
-		not yet processed.
+		arbitrary nesting. Double-quoted scalars honour the usual
+		backslash escapes; single-quoted scalars honour <c>''</c>
+		as an escape for a single apostrophe.
 	⁍ is
 		trimmed :← input.trimSpaces()
 		if isWrapped(trimmed, “[”, “]”) then
@@ -29,8 +31,13 @@ library YamlParser ⁌
 	end
 
 	function parseScalar(trimmed : String) → YamlValue is
-		if isQuoted(trimmed, “"”) ⩒ isQuoted(trimmed, “'”) then
-			return YamlScalar(trimmed.substring(trimmed.firstIndex() + 1, trimmed.lastIndex() − 1))
+		if isQuoted(trimmed, “"”) then
+			inner :← trimmed.substring(trimmed.firstIndex() + 1, trimmed.lastIndex() − 1)
+			return YamlScalar(unescapeDouble(inner))
+		end
+		if isQuoted(trimmed, “'”) then
+			inner :← trimmed.substring(trimmed.firstIndex() + 1, trimmed.lastIndex() − 1)
+			return YamlScalar(unescapeSingle(inner))
 		end
 		return classifyPlainScalar(trimmed)
 	end
@@ -143,6 +150,131 @@ library YamlParser ⁌
 
 	function isDigit(ch : String) → 𝔹 is
 		return ch = “0” ⩒ ch = “1” ⩒ ch = “2” ⩒ ch = “3” ⩒ ch = “4” ⩒ ch = “5” ⩒ ch = “6” ⩒ ch = “7” ⩒ ch = “8” ⩒ ch = “9”
+	end
+
+	function unescapeDouble(inner : String) → String ⁌
+		Decodes backslash escapes inside a double-quoted YAML scalar:
+		<c>\n \t \r \\ \" \/ \0 \a \b \f \v \e</c> and <c>\uXXXX</c>
+		for BMP code points. Unrecognised escapes pass through literally.
+	⁍ is
+		n :← ∣inner∣
+		result : String ← “”
+		skip_until : ℕ₃₂ ← 0
+		for i ∈ ⟨0, …, n − 1⟩ do
+			if i ≥ skip_until then
+				idx :← StringIndex(i)
+				ch :← inner.substring(idx, idx + 1)
+				if ch = “\” ⩑ i + 1 < n then
+					next_idx :← StringIndex(i + 1)
+					esc :← inner.substring(next_idx, next_idx + 1)
+					if esc = “n” then
+						result ← result ⋅ Unicode(10).toUnicode()
+						skip_until ← i + 2
+					elseif esc = “t” then
+						result ← result ⋅ Unicode(9).toUnicode()
+						skip_until ← i + 2
+					elseif esc = “r” then
+						result ← result ⋅ Unicode(13).toUnicode()
+						skip_until ← i + 2
+					elseif esc = “0” then
+						result ← result ⋅ Unicode(0).toUnicode()
+						skip_until ← i + 2
+					elseif esc = “a” then
+						result ← result ⋅ Unicode(7).toUnicode()
+						skip_until ← i + 2
+					elseif esc = “b” then
+						result ← result ⋅ Unicode(8).toUnicode()
+						skip_until ← i + 2
+					elseif esc = “f” then
+						result ← result ⋅ Unicode(12).toUnicode()
+						skip_until ← i + 2
+					elseif esc = “v” then
+						result ← result ⋅ Unicode(11).toUnicode()
+						skip_until ← i + 2
+					elseif esc = “e” then
+						result ← result ⋅ Unicode(27).toUnicode()
+						skip_until ← i + 2
+					elseif esc = “\” then
+						result ← result ⋅ “\”
+						skip_until ← i + 2
+					elseif esc = “"” then
+						result ← result ⋅ “"”
+						skip_until ← i + 2
+					elseif esc = “/” then
+						result ← result ⋅ “/”
+						skip_until ← i + 2
+					elseif esc = “u” ⩑ i + 5 < n then
+						hex :← inner.substring(StringIndex(i + 2), StringIndex(i + 6))
+						result ← result ⋅ Unicode(parseHex4(hex)).toUnicode()
+						skip_until ← i + 6
+					else
+						result ← result ⋅ ch ⋅ esc
+						skip_until ← i + 2
+					end
+				else
+					result ← result ⋅ ch
+				end
+			end
+		end
+		return result
+	end
+
+	function unescapeSingle(inner : String) → String ⁌
+		Decodes <c>''</c> to a single <c>'</c> inside a single-quoted
+		YAML scalar. No other escape processing happens.
+	⁍ is
+		n :← ∣inner∣
+		result : String ← “”
+		skip_until : ℕ₃₂ ← 0
+		for i ∈ ⟨0, …, n − 1⟩ do
+			if i ≥ skip_until then
+				idx :← StringIndex(i)
+				ch :← inner.substring(idx, idx + 1)
+				if ch = “'” ⩑ i + 1 < n then
+					next_idx :← StringIndex(i + 1)
+					next_ch :← inner.substring(next_idx, next_idx + 1)
+					if next_ch = “'” then
+						result ← result ⋅ “'”
+						skip_until ← i + 2
+					else
+						result ← result ⋅ ch
+					end
+				else
+					result ← result ⋅ ch
+				end
+			end
+		end
+		return result
+	end
+
+	function parseHex4(hex : String) → ℤ₃₂ ⁌
+		Parses exactly four ASCII hex digits into a code point value.
+		Non-hex characters contribute 0.
+	⁍ is
+		val : ℤ₃₂ ← 0
+		for i ∈ ⟨0, …, 3⟩ do
+			idx :← StringIndex(i)
+			ch :← hex.substring(idx, idx + 1)
+			val ← (val ⋅ 16) + hexDigit(ch)
+		end
+		return val
+	end
+
+	function hexDigit(ch : String) → ℤ₃₂ ⁌
+		Converts a single ASCII hex digit character to its numeric value;
+		returns <c>0</c> for anything that is not a hex digit.
+	⁍ is
+		cp :← Unicode(ch.firstUnicode()).asInt()
+		if 48 ≤ cp ⩑ cp ≤ 57 then
+			return cp − 48
+		end
+		if 97 ≤ cp ⩑ cp ≤ 102 then
+			return cp − 87
+		end
+		if 65 ≤ cp ⩑ cp ≤ 70 then
+			return cp − 55
+		end
+		return 0
 	end
 
 	function parseFlowSequence(trimmed : String) → YamlSequence is

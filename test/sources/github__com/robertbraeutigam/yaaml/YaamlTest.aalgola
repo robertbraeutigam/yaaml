@@ -2,6 +2,7 @@
 namespace //github.com/robertbraeutigam/yaaml/
 
 import //github.com/robertbraeutigam/yaaml/YamlParser
+import //aalgola.org/core/character/Unicode
 
 test YaamlTest is
 
@@ -143,6 +144,61 @@ test YaamlTest is
 	test “resolves typed scalars inside a flow mapping” is
 		result :← YamlParser.parse(“{flag: true, count: 7, ratio: 0.5, nothing: ~}”)
 		assert result.display() = “{flag: true, count: 7, ratio: 0.5, nothing: null}”
+	end
+
+	test “decodes \\n inside a double-quoted scalar” is
+		result :← YamlParser.parse(“"a\nb"”)
+		expected :← “a” ⋅ Unicode(10).toUnicode() ⋅ “b”
+		assert result.display() = expected
+	end
+
+	test “decodes \\t inside a double-quoted scalar” is
+		result :← YamlParser.parse(“"a\tb"”)
+		expected :← “a” ⋅ Unicode(9).toUnicode() ⋅ “b”
+		assert result.display() = expected
+	end
+
+	test “decodes \\r inside a double-quoted scalar” is
+		result :← YamlParser.parse(“"a\rb"”)
+		expected :← “a” ⋅ Unicode(13).toUnicode() ⋅ “b”
+		assert result.display() = expected
+	end
+
+	test “decodes \\\\ inside a double-quoted scalar” is
+		result :← YamlParser.parse(“"a\\b"”)
+		assert result.display() = “a\b”
+	end
+
+	test “decodes \\\" inside a double-quoted scalar” is
+		result :← YamlParser.parse(“"a\"b"”)
+		assert result.display() = “a"b”
+	end
+
+	test “decodes \\uXXXX inside a double-quoted scalar” is
+		result :← YamlParser.parse(“"\u00e9"”)
+		expected :← Unicode(233).toUnicode() ⋅ “”
+		assert result.display() = expected
+	end
+
+	test “passes through unknown double-quote escape literally” is
+		result :← YamlParser.parse(“"a\zb"”)
+		assert result.display() = “a\zb”
+	end
+
+	test “decodes '' inside a single-quoted scalar” is
+		result :← YamlParser.parse(“'it''s'”)
+		assert result.display() = “it's”
+	end
+
+	test “keeps backslash literal inside a single-quoted scalar” is
+		result :← YamlParser.parse(“'a\nb'”)
+		assert result.display() = “a\nb”
+	end
+
+	test “decodes escapes inside flow-sequence quoted scalars” is
+		result :← YamlParser.parse(“["a\tb", 'it''s']”)
+		expected :← “[a” ⋅ Unicode(9).toUnicode() ⋅ “b, it's]”
+		assert result.display() = expected
 	end
 
 end
