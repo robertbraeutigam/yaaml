@@ -1,9 +1,18 @@
+
 namespace //github.com/robertbraeutigam/yaaml/
+
+import //github.com/robertbraeutigam/yaaml/YamlParser
 
 test YaamlTest is
 
-	test “Dummy Test” is
-		assert 1 ≠ 2
+	test “parses a plain scalar” is
+		result :← YamlParser.parse(“hello”)
+		assert result.content = “hello”
+	end
+
+	test “trims surrounding whitespace around a scalar” is
+		result :← YamlParser.parse(“  hello  ”)
+		assert result.content = “hello”
 	end
 
 end

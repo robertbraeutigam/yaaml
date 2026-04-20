@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(aalgolac --compile-all --source-path sources/ --target target/classes/)",
+      "Bash(aalgolac *)",
+      "Bash(aatest *)"
+    ]
+  }
+}

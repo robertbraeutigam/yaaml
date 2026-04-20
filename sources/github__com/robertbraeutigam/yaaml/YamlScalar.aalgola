@@ -1,0 +1,21 @@
+
+namespace //github.com/robertbraeutigam/yaaml/
+
+⟦public⟧
+object YamlScalar isa YamlValue ⁌
+	A scalar YAML value. In this iteration scalars are stored as their
+	raw textual content; type inference comes in a later iteration.
+⁍ is
+
+	⟦public⟧
+	⟦final⟧
+	content : String ⁌
+		Raw textual content of the scalar.
+	⁍
+
+	⟦public⟧
+	init (content : String) is
+		self.content ← content
+	end
+
+end object

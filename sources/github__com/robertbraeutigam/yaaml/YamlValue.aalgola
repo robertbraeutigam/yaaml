@@ -1,0 +1,9 @@
+
+namespace //github.com/robertbraeutigam/yaaml/
+
+⟦public⟧
+interface YamlValue ⁌
+	Base type for every parsed YAML value.
+⁍ is
+
+end interface

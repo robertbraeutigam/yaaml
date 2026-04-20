@@ -1,0 +1,19 @@
+
+namespace //github.com/robertbraeutigam/yaaml/
+
+⟦public⟧
+library YamlParser ⁌
+	Parser for YAML documents.
+⁍ is
+
+	⟦public⟧
+	function parse(input : String) → YamlScalar ⁌
+		Parses the given YAML input and returns the root value.
+		In this iteration only a single plain scalar is recognised; the
+		returned value contains the input with surrounding whitespace
+		stripped.
+	⁍ is
+		return YamlScalar(input.trimSpaces())
+	end
+
+end library

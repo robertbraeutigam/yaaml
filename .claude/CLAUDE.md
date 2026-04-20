@@ -16,9 +16,11 @@ The project uses the native Aalgola compile and build systems.
 # Compile program
 aalgolac --compile-all --source-path sources/ --target target/classes/
 
-# Run test (always compile before running test)
-aalgolac --compile-all --source-path test/sources/ --target test/target/classes/
-aatest --modules test/target/classes/
+# Run test (always compile before running test). Tests reference types from the
+# main library, so both the compile step and aatest need the main classes on
+# their modules path.
+aalgolac --compile-all --source-path test/sources/ --target test/target/classes/ --modules-path target/classes/
+aatest --modules test/target/classes/,target/classes/
 
 # Run the yaaml program to parse yaml from stdin
 aalgola --modules target/classes/ //github.com/robertbraeutigam/yaaml/Yaaml
