@@ -334,4 +334,111 @@ test YaamlTest is
 		assert result.display() = “[[[a, b], c]]”
 	end
 
+	test “parses a single-entry block mapping” is
+		result :← YamlParser.parse(“name: Alice”)
+		assert result.display() = “{name: Alice}”
+	end
+
+	test “parses a multi-entry block mapping” is
+		nl :← Unicode(10).toUnicode()
+		input :← “name: Alice” ⋅ nl ⋅ “age: 30”
+		result :← YamlParser.parse(input)
+		assert result.display() = “{name: Alice, age: 30}”
+	end
+
+	test “resolves typed scalars inside a block mapping” is
+		nl :← Unicode(10).toUnicode()
+		input :← “flag: true” ⋅ nl ⋅ “count: 7” ⋅ nl ⋅ “ratio: 0.5” ⋅ nl ⋅ “nothing: ~”
+		result :← YamlParser.parse(input)
+		assert result.display() = “{flag: true, count: 7, ratio: 0.5, nothing: null}”
+	end
+
+	test “block mapping value may be a quoted scalar” is
+		nl :← Unicode(10).toUnicode()
+		input :← “greeting: "hello, world"” ⋅ nl ⋅ “name: 'Alice'”
+		result :← YamlParser.parse(input)
+		assert result.display() = “{greeting: hello, world, name: Alice}”
+	end
+
+	test “block mapping key may be double-quoted” is
+		result :← YamlParser.parse(“"my key": 42”)
+		assert result.display() = “{my key: 42}”
+	end
+
+	test “block mapping key may be single-quoted” is
+		result :← YamlParser.parse(“'my key': value”)
+		assert result.display() = “{my key: value}”
+	end
+
+	test “preserves colon-in-value when not followed by whitespace” is
+		result :← YamlParser.parse(“url: http://example.com”)
+		assert result.display() = “{url: http://example.com}”
+	end
+
+	test “block mapping entry with empty inline value is null” is
+		nl :← Unicode(10).toUnicode()
+		input :← “a:” ⋅ nl ⋅ “b: 1”
+		result :← YamlParser.parse(input)
+		assert result.display() = “{a: null, b: 1}”
+	end
+
+	test “parses nested block mapping on indented lines” is
+		nl :← Unicode(10).toUnicode()
+		input :← “outer:” ⋅ nl ⋅ “  inner: x” ⋅ nl ⋅ “next: y”
+		result :← YamlParser.parse(input)
+		assert result.display() = “{outer: {inner: x}, next: y}”
+	end
+
+	test “parses deeply nested block mapping” is
+		nl :← Unicode(10).toUnicode()
+		input :← “a:” ⋅ nl ⋅ “  b:” ⋅ nl ⋅ “    c: 1”
+		result :← YamlParser.parse(input)
+		assert result.display() = “{a: {b: {c: 1}}}”
+	end
+
+	test “parses block mapping whose value is a block sequence” is
+		nl :← Unicode(10).toUnicode()
+		input :← “items:” ⋅ nl ⋅ “  - a” ⋅ nl ⋅ “  - b”
+		result :← YamlParser.parse(input)
+		assert result.display() = “{items: [a, b]}”
+	end
+
+	test “parses block sequence of compact block mappings” is
+		nl :← Unicode(10).toUnicode()
+		input :← “- k1: v1” ⋅ nl ⋅ “- k2: v2”
+		result :← YamlParser.parse(input)
+		assert result.display() = “[{k1: v1}, {k2: v2}]”
+	end
+
+	test “block mapping value may be a flow sequence” is
+		result :← YamlParser.parse(“items: [a, b, c]”)
+		assert result.display() = “{items: [a, b, c]}”
+	end
+
+	test “block mapping value may be a flow mapping” is
+		result :← YamlParser.parse(“config: {debug: true}”)
+		assert result.display() = “{config: {debug: true}}”
+	end
+
+	test “ignores blank lines between block mapping entries” is
+		nl :← Unicode(10).toUnicode()
+		input :← “a: 1” ⋅ nl ⋅ nl ⋅ “b: 2”
+		result :← YamlParser.parse(input)
+		assert result.display() = “{a: 1, b: 2}”
+	end
+
+	test “ignores comment-only lines between block mapping entries” is
+		nl :← Unicode(10).toUnicode()
+		input :← “a: 1” ⋅ nl ⋅ “# comment” ⋅ nl ⋅ “b: 2”
+		result :← YamlParser.parse(input)
+		assert result.display() = “{a: 1, b: 2}”
+	end
+
+	test “ignores end-of-line comment on a block mapping entry” is
+		nl :← Unicode(10).toUnicode()
+		input :← “a: 1 # one” ⋅ nl ⋅ “b: 2”
+		result :← YamlParser.parse(input)
+		assert result.display() = “{a: 1, b: 2}”
+	end
+
 end
