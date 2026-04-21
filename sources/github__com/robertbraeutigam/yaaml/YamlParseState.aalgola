@@ -30,6 +30,9 @@ object YamlParseState ⁌
 	const SQUOTE   : 𝔸 = Unicode(39).toUnicode()
 	const BSLASH   : 𝔸 = Unicode(92).toUnicode()
 	const DASH     : 𝔸 = Unicode(45).toUnicode()
+	const PLUS     : 𝔸 = Unicode(43).toUnicode()
+	const PIPE     : 𝔸 = Unicode(124).toUnicode()
+	const GREATER  : 𝔸 = Unicode(62).toUnicode()
 
 	⟦private⟧
 	⟦final⟧
@@ -236,6 +239,12 @@ object YamlParseState ⁌
 						end
 						return YamlNull()
 					end
+					if la2 = PIPE then
+						return parseBlockScalar(indent, TRUE)
+					end
+					if la2 = GREATER then
+						return parseBlockScalar(indent, FALSE)
+					end
 					v :← parseValue(FALSE)
 					finishLine()
 					skipBlankLines()
@@ -411,6 +420,12 @@ object YamlParseState ⁌
 					if la2 = NEWLINE ⩒ la2 = CR ⩒ la2 = HASH then
 						return emptyItemContinuation(parent_indent)
 					end
+					if la2 = PIPE then
+						return parseBlockScalar(parent_indent, TRUE)
+					end
+					if la2 = GREATER then
+						return parseBlockScalar(parent_indent, FALSE)
+					end
 					return parseNode()
 				end
 			end
@@ -512,6 +527,264 @@ object YamlParseState ⁌
 				skipBlankLines()
 			end
 		end
+	end
+
+	method parseBlockScalar(parent_indent : ℕ₃₂, literal : 𝔹) → YamlValue ⁌
+		Parses a <c>|</c> literal or <c>&gt;</c> folded block scalar, with
+		optional <c>-</c>/<c>+</c> chomping indicator. Auto-detects base
+		indentation from the first non-empty content line. Explicit indent
+		indicators (e.g. <c>|2</c>) are not supported.
+	⁍ is
+		reader.readUnicode()
+		current_col ← current_col + 1
+		chomp :← readBlockScalarChomping()
+		finishLine()
+		lines_builder :← ArrayBuilder⟦String⟧()
+		collectBlockScalarLines(parent_indent, 0, FALSE, lines_builder)
+		lines :← lines_builder.done()
+		body : String ← “”
+		if literal then
+			body ← assembleLiteral(lines)
+		else
+			body ← assembleFolded(lines)
+		end
+		chomped :← applyChomping(body, chomp)
+		skipBlankLines()
+		return YamlScalar(chomped)
+	end
+
+	method readBlockScalarChomping() → ℕ₃₂ ⁌
+		0 = clip (default, one trailing newline), 1 = strip, 2 = keep.
+	⁍ is
+		la :← reader.lookaheadUnicode()
+		if la = TextReader.END_OF_TEXT then
+			return 0
+		else
+			if la = DASH then
+				reader.readUnicode()
+				current_col ← current_col + 1
+				return 1
+			end
+			if la = PLUS then
+				reader.readUnicode()
+				current_col ← current_col + 1
+				return 2
+			end
+			return 0
+		end
+	end
+
+	method collectBlockScalarLines(parent_indent : ℕ₃₂, base_indent : ℕ₃₂, have_base : 𝔹, builder : ArrayBuilder⟦String⟧) → () is
+		la :← reader.lookaheadUnicode()
+		if la = TextReader.END_OF_TEXT then
+			return
+		else
+			indent :← peekLineIndent()
+			blank :← isLineBlankAtPeek(indent)
+			if blank then
+				consumeBlankLine()
+				builder.append(“”)
+				collectBlockScalarLines(parent_indent, base_indent, have_base, builder)
+				return
+			end
+			if ¬ have_base then
+				if indent ≤ parent_indent then
+					return
+				end
+				skipNSpaces(indent)
+				line_text :← readLineText()
+				builder.append(line_text)
+				collectBlockScalarLines(parent_indent, indent, TRUE, builder)
+				return
+			end
+			if indent < base_indent then
+				return
+			end
+			skipNSpaces(base_indent)
+			line_text :← readLineText()
+			builder.append(line_text)
+			collectBlockScalarLines(parent_indent, base_indent, have_base, builder)
+		end
+	end
+
+	method peekLineIndent() → ℕ₃₂ is
+		return peekLineIndentFrom(1)
+	end
+
+	method peekLineIndentFrom(i : ℕ₃₂) → ℕ₃₂ is
+		la :← reader.lookaheadUnicode(i)
+		if la = TextReader.END_OF_TEXT then
+			return i − 1
+		else
+			if la = SPACE then
+				return peekLineIndentFrom(i + 1)
+			end
+			return i − 1
+		end
+	end
+
+	method isLineBlankAtPeek(indent : ℕ₃₂) → 𝔹 is
+		la :← reader.lookaheadUnicode(indent + 1)
+		if la = TextReader.END_OF_TEXT then
+			return TRUE
+		else
+			if la = NEWLINE ⩒ la = CR then
+				return TRUE
+			end
+			return FALSE
+		end
+	end
+
+	method consumeBlankLine() → () is
+		la :← reader.lookaheadUnicode()
+		if la = TextReader.END_OF_TEXT then
+			return
+		else
+			if la = NEWLINE then
+				reader.readUnicode()
+				current_col ← 0
+				return
+			end
+			if la = CR then
+				reader.readUnicode()
+				next :← reader.lookaheadUnicode()
+				if next ≠ TextReader.END_OF_TEXT then
+					if next = NEWLINE then
+						reader.readUnicode()
+					end
+				end
+				current_col ← 0
+				return
+			end
+			reader.readUnicode()
+			current_col ← current_col + 1
+			consumeBlankLine()
+		end
+	end
+
+	method skipNSpaces(n : ℕ₃₂) → () is
+		if n = 0 then
+			return
+		end
+		la :← reader.lookaheadUnicode()
+		if la = TextReader.END_OF_TEXT then
+			return
+		else
+			if la = SPACE then
+				reader.readUnicode()
+				current_col ← current_col + 1
+				skipNSpaces(n − 1)
+			end
+		end
+	end
+
+	method readLineText() → String is
+		start :← reader.currentOffset()
+		readUntilNewline()
+		end_off :← reader.currentOffset()
+		text :← source.text(start, end_off)
+		la :← reader.lookaheadUnicode()
+		if la ≠ TextReader.END_OF_TEXT then
+			if la = NEWLINE then
+				reader.readUnicode()
+				current_col ← 0
+			elseif la = CR then
+				reader.readUnicode()
+				next :← reader.lookaheadUnicode()
+				if next ≠ TextReader.END_OF_TEXT then
+					if next = NEWLINE then
+						reader.readUnicode()
+					end
+				end
+				current_col ← 0
+			end
+		end
+		return text
+	end
+
+	method readUntilNewline() → () is
+		la :← reader.lookaheadUnicode()
+		if la = TextReader.END_OF_TEXT then
+			return
+		else
+			if la = NEWLINE ⩒ la = CR then
+				return
+			end
+			reader.readUnicode()
+			current_col ← current_col + 1
+			readUntilNewline()
+		end
+	end
+
+	function assembleLiteral(lines : Array⟦String⟧) → String is
+		acc : String ← “”
+		for line ∈ lines do
+			acc ← acc ⋅ line ⋅ NEWLINE
+		end
+		return acc
+	end
+
+	function assembleFolded(lines : Array⟦String⟧) → String is
+		acc : String ← “”
+		prev_content : 𝔹 ← FALSE
+		pending_blanks : ℕ₃₂ ← 0
+		for line ∈ lines do
+			if line.isEmpty() then
+				pending_blanks ← pending_blanks + 1
+			else
+				if prev_content then
+					if pending_blanks = 0 then
+						acc ← acc ⋅ SPACE
+					else
+						acc ← acc ⋅ repeatNewlines(pending_blanks)
+					end
+				else
+					acc ← acc ⋅ repeatNewlines(pending_blanks)
+				end
+				acc ← acc ⋅ line
+				prev_content ← TRUE
+				pending_blanks ← 0
+			end
+		end
+		if prev_content then
+			acc ← acc ⋅ NEWLINE
+		end
+		acc ← acc ⋅ repeatNewlines(pending_blanks)
+		return acc
+	end
+
+	function repeatNewlines(n : ℕ₃₂) → String is
+		if n = 0 then
+			return “”
+		end
+		return repeatNewlines(n − 1) ⋅ NEWLINE
+	end
+
+	function applyChomping(text : String, chomp : ℕ₃₂) → String is
+		if chomp = 2 then
+			return text
+		end
+		stripped :← stripTrailingNewlines(text)
+		if chomp = 1 then
+			return stripped
+		end
+		if ∣text∣ > ∣stripped∣ then
+			return stripped ⋅ NEWLINE
+		end
+		return stripped
+	end
+
+	function stripTrailingNewlines(text : String) → String is
+		n :← ∣text∣
+		if n = 0 then
+			return text
+		end
+		last_idx :← StringIndex(n − 1)
+		last_ch :← text.substring(last_idx, last_idx + 1)
+		if last_ch.firstUnicode() = NEWLINE then
+			return stripTrailingNewlines(text.substring(text.firstIndex(), last_idx))
+		end
+		return text
 	end
 
 	method parsePlainScalar(in_flow : 𝔹) → YamlValue is

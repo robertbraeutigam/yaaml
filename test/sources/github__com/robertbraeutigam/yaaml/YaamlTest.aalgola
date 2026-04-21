@@ -441,4 +441,108 @@ test YaamlTest is
 		assert result.display() = “{a: 1, b: 2}”
 	end
 
+	test “parses a literal block scalar with default chomping” is
+		nl :← Unicode(10).toUnicode()
+		input :← “text: |” ⋅ nl ⋅ “  line1” ⋅ nl ⋅ “  line2”
+		result :← YamlParser.parse(input)
+		expected :← “{text: line1” ⋅ nl ⋅ “line2” ⋅ nl ⋅ “}”
+		assert result.display() = expected
+	end
+
+	test “literal block scalar with strip chomping removes trailing newline” is
+		nl :← Unicode(10).toUnicode()
+		input :← “text: |-” ⋅ nl ⋅ “  line1” ⋅ nl ⋅ “  line2”
+		result :← YamlParser.parse(input)
+		expected :← “{text: line1” ⋅ nl ⋅ “line2}”
+		assert result.display() = expected
+	end
+
+	test “literal block scalar with keep chomping preserves trailing blank lines” is
+		nl :← Unicode(10).toUnicode()
+		input :← “text: |+” ⋅ nl ⋅ “  line1” ⋅ nl ⋅ nl ⋅ “next: 1”
+		result :← YamlParser.parse(input)
+		expected :← “{text: line1” ⋅ nl ⋅ nl ⋅ “, next: 1}”
+		assert result.display() = expected
+	end
+
+	test “literal block scalar preserves blank lines in content” is
+		nl :← Unicode(10).toUnicode()
+		input :← “text: |” ⋅ nl ⋅ “  a” ⋅ nl ⋅ nl ⋅ “  b”
+		result :← YamlParser.parse(input)
+		expected :← “{text: a” ⋅ nl ⋅ nl ⋅ “b” ⋅ nl ⋅ “}”
+		assert result.display() = expected
+	end
+
+	test “literal block scalar preserves extra indentation as content” is
+		nl :← Unicode(10).toUnicode()
+		input :← “text: |” ⋅ nl ⋅ “  a” ⋅ nl ⋅ “    indented” ⋅ nl ⋅ “  b”
+		result :← YamlParser.parse(input)
+		expected :← “{text: a” ⋅ nl ⋅ “  indented” ⋅ nl ⋅ “b” ⋅ nl ⋅ “}”
+		assert result.display() = expected
+	end
+
+	test “parses a folded block scalar joining lines with space” is
+		nl :← Unicode(10).toUnicode()
+		input :← “text: >” ⋅ nl ⋅ “  line1” ⋅ nl ⋅ “  line2” ⋅ nl ⋅ “  line3”
+		result :← YamlParser.parse(input)
+		expected :← “{text: line1 line2 line3” ⋅ nl ⋅ “}”
+		assert result.display() = expected
+	end
+
+	test “folded block scalar treats blank line as newline” is
+		nl :← Unicode(10).toUnicode()
+		input :← “text: >” ⋅ nl ⋅ “  a” ⋅ nl ⋅ nl ⋅ “  b”
+		result :← YamlParser.parse(input)
+		expected :← “{text: a” ⋅ nl ⋅ “b” ⋅ nl ⋅ “}”
+		assert result.display() = expected
+	end
+
+	test “folded block scalar with strip chomping” is
+		nl :← Unicode(10).toUnicode()
+		input :← “text: >-” ⋅ nl ⋅ “  a” ⋅ nl ⋅ “  b”
+		result :← YamlParser.parse(input)
+		expected :← “{text: a b}”
+		assert result.display() = expected
+	end
+
+	test “block scalar as sequence item value” is
+		nl :← Unicode(10).toUnicode()
+		input :← “- |” ⋅ nl ⋅ “  first” ⋅ nl ⋅ “  second” ⋅ nl ⋅ “- done”
+		result :← YamlParser.parse(input)
+		expected :← “[first” ⋅ nl ⋅ “second” ⋅ nl ⋅ “, done]”
+		assert result.display() = expected
+	end
+
+	test “block scalar terminates at less-indented line” is
+		nl :← Unicode(10).toUnicode()
+		input :← “text: |” ⋅ nl ⋅ “  inside” ⋅ nl ⋅ “next: after”
+		result :← YamlParser.parse(input)
+		expected :← “{text: inside” ⋅ nl ⋅ “, next: after}”
+		assert result.display() = expected
+	end
+
+	test “empty literal block scalar yields empty string” is
+		nl :← Unicode(10).toUnicode()
+		input :← “text: |” ⋅ nl ⋅ “next: 1”
+		result :← YamlParser.parse(input)
+		expected :← “{text: , next: 1}”
+		assert result.display() = expected
+	end
+
+	test “literal block scalar with single content line and clip chomping” is
+		nl :← Unicode(10).toUnicode()
+		input :← “text: |” ⋅ nl ⋅ “  solo”
+		result :← YamlParser.parse(input)
+		expected :← “{text: solo” ⋅ nl ⋅ “}”
+		assert result.display() = expected
+	end
+
+	test “literal block scalar header with trailing comment” is
+		nl :← Unicode(10).toUnicode()
+		input :← “text: | # keep” ⋅ nl ⋅ “  hello”
+		result :← YamlParser.parse(input)
+		expected :← “{text: hello” ⋅ nl ⋅ “}”
+		assert result.display() = expected
+	end
+
 end
