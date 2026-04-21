@@ -1,0 +1,108 @@
+namespace //github.com/robertbraeutigam/yaaml/
+
+⟦package⟧
+library YamlScalarClassifier ⁌
+	Applies the YAML 1.2 core schema to an unquoted, trimmed scalar:
+	recognises <c>null</c>/<c>~</c>, booleans, decimal integers, and
+	decimal floats (including scientific notation). Anything else
+	becomes a plain <c>YamlScalar</c>.
+⁍ is
+
+	⟦package⟧
+	function classifyPlainScalar(s : String) → YamlValue is
+		if s.isEmpty() then
+			return YamlNull()
+		end
+		if s = “null” ⩒ s = “Null” ⩒ s = “NULL” ⩒ s = “~” then
+			return YamlNull()
+		end
+		if s = “true” ⩒ s = “True” ⩒ s = “TRUE” then
+			return YamlBool(TRUE)
+		end
+		if s = “false” ⩒ s = “False” ⩒ s = “FALSE” then
+			return YamlBool(FALSE)
+		end
+		if isInt(s) then
+			return YamlInt(s)
+		end
+		if isFloat(s) then
+			return YamlFloat(s)
+		end
+		return YamlScalar(s)
+	end
+
+	function isInt(s : String) → 𝔹 is
+		n :← ∣s∣
+		if n = 0 then
+			return FALSE
+		end
+		for i ∈ ⟨0, …, n − 1⟩ do
+			idx :← StringIndex(i)
+			ch :← s.substring(idx, idx + 1)
+			if i = 0 ⩑ (ch = “+” ⩒ ch = “-”) then
+				if n = 1 then
+					return FALSE
+				end
+			elseif ¬ isDigit(ch) then
+				return FALSE
+			end
+		end
+		return TRUE
+	end
+
+	function isFloat(s : String) → 𝔹 is
+		n :← ∣s∣
+		if n = 0 then
+			return FALSE
+		end
+		has_marker :← FALSE
+		has_any_digit :← FALSE
+		seen_dot :← FALSE
+		seen_exp :← FALSE
+		seen_exp_sign :← FALSE
+		has_exp_digit :← FALSE
+		for i ∈ ⟨0, …, n − 1⟩ do
+			idx :← StringIndex(i)
+			ch :← s.substring(idx, idx + 1)
+			if i = 0 ⩑ (ch = “+” ⩒ ch = “-”) then
+				¶ leading sign
+			elseif ch = “.” then
+				if seen_dot ⩒ seen_exp then
+					return FALSE
+				end
+				seen_dot ← TRUE
+				has_marker ← TRUE
+			elseif ch = “e” ⩒ ch = “E” then
+				if seen_exp ⩒ ¬ has_any_digit then
+					return FALSE
+				end
+				seen_exp ← TRUE
+				has_marker ← TRUE
+			elseif (ch = “+” ⩒ ch = “-”) ⩑ seen_exp ⩑ ¬ seen_exp_sign ⩑ ¬ has_exp_digit then
+				seen_exp_sign ← TRUE
+			elseif isDigit(ch) then
+				has_any_digit ← TRUE
+				if seen_exp then
+					has_exp_digit ← TRUE
+				end
+			else
+				return FALSE
+			end
+		end
+		if ¬ has_marker then
+			return FALSE
+		end
+		if ¬ has_any_digit then
+			return FALSE
+		end
+		if seen_exp ⩑ ¬ has_exp_digit then
+			return FALSE
+		end
+		return TRUE
+	end
+
+	function isDigit(ch : String) → 𝔹 is
+		return ch = “0” ⩒ ch = “1” ⩒ ch = “2” ⩒ ch = “3” ⩒ ch = “4” ⩒ ch = “5” ⩒ ch = “6” ⩒ ch = “7” ⩒ ch = “8” ⩒ ch = “9”
+	end
+
+end library

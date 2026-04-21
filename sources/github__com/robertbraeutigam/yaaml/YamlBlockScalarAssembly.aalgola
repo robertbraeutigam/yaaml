@@ -1,0 +1,92 @@
+namespace //github.com/robertbraeutigam/yaaml/
+
+import //aalgola.org/core/collection/cdt/array/Array
+import //aalgola.org/core/character/Unicode
+
+⟦package⟧
+library YamlBlockScalarAssembly ⁌
+	Joins block scalar content lines into a single string and applies
+	chomping. Literal style joins lines with a newline; folded style
+	joins consecutive content lines with a single space and preserves
+	blank lines as newlines. Chomping: 0 = clip (one trailing newline),
+	1 = strip (no trailing newline), 2 = keep (preserve all).
+⁍ is
+
+	const SPACE   : 𝔸 = Unicode(32).toUnicode()
+	const NEWLINE : 𝔸 = Unicode(10).toUnicode()
+
+	⟦package⟧
+	function assembleLiteral(lines : Array⟦String⟧) → String is
+		acc : String ← “”
+		for line ∈ lines do
+			acc ← acc ⋅ line ⋅ NEWLINE
+		end
+		return acc
+	end
+
+	⟦package⟧
+	function assembleFolded(lines : Array⟦String⟧) → String is
+		acc : String ← “”
+		prev_content : 𝔹 ← FALSE
+		pending_blanks : ℕ₃₂ ← 0
+		for line ∈ lines do
+			if line.isEmpty() then
+				pending_blanks ← pending_blanks + 1
+			else
+				if prev_content then
+					if pending_blanks = 0 then
+						acc ← acc ⋅ SPACE
+					else
+						acc ← acc ⋅ repeatNewlines(pending_blanks)
+					end
+				else
+					acc ← acc ⋅ repeatNewlines(pending_blanks)
+				end
+				acc ← acc ⋅ line
+				prev_content ← TRUE
+				pending_blanks ← 0
+			end
+		end
+		if prev_content then
+			acc ← acc ⋅ NEWLINE
+		end
+		acc ← acc ⋅ repeatNewlines(pending_blanks)
+		return acc
+	end
+
+	⟦package⟧
+	function applyChomping(text : String, chomp : ℕ₃₂) → String is
+		if chomp = 2 then
+			return text
+		end
+		stripped :← stripTrailingNewlines(text)
+		if chomp = 1 then
+			return stripped
+		end
+		if ∣text∣ > ∣stripped∣ then
+			return stripped ⋅ NEWLINE
+		end
+		return stripped
+	end
+
+	function repeatNewlines(n : ℕ₃₂) → String is
+		if n = 0 then
+			return “”
+		end
+		return repeatNewlines(n − 1) ⋅ NEWLINE
+	end
+
+	function stripTrailingNewlines(text : String) → String is
+		n :← ∣text∣
+		if n = 0 then
+			return text
+		end
+		last_idx :← StringIndex(n − 1)
+		last_ch :← text.substring(last_idx, last_idx + 1)
+		if last_ch.firstUnicode() = NEWLINE then
+			return stripTrailingNewlines(text.substring(text.firstIndex(), last_idx))
+		end
+		return text
+	end
+
+end library
