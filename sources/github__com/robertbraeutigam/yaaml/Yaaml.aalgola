@@ -1,11 +1,14 @@
-namespace aalgola://github.com/robertbraeutigam/yaaml/
+namespace //github.com/robertbraeutigam/yaaml/
 
-import aalgola://aalgola.org/core/application/Application
+import //aalgola.org/core/application/Application
 
 ⟦program⟧
 object Yaaml is
+
+	⟦public⟧
 	⟦override⟧
 	method run() → () is
 		debugWriteLine(“Hello World!”)
-	end method
+	end
+
 end object
