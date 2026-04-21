@@ -29,6 +29,7 @@ object YamlParseState ⁌
 	const DQUOTE   : 𝔸 = Unicode(34).toUnicode()
 	const SQUOTE   : 𝔸 = Unicode(39).toUnicode()
 	const BSLASH   : 𝔸 = Unicode(92).toUnicode()
+	const DASH     : 𝔸 = Unicode(45).toUnicode()
 
 	⟦private⟧
 	⟦final⟧
@@ -38,18 +39,34 @@ object YamlParseState ⁌
 	⟦final⟧
 	reader : SourceReader
 
+	⟦private⟧
+	current_col : ℕ₃₂ ⁌
+		Column of the reader's current position on the current line.
+		Only meaningful at line-start decision points — the block-style
+		helpers (<c>skipBlankLines</c>, <c>finishLine</c>) always restore
+		it to the right value before a caller reads it.
+	⁍
+
 	⟦public⟧
 	init (input : String) is
 		self.source ← StringSource(input)
 		self.reader ← source.sourceReader()
+		self.current_col ← 0
 	end
 
 	⟦public⟧
 	method parseDocument() → YamlValue is
-		skipWhitespaceAndComments()
-		value :← parseValue(FALSE)
+		skipBlankLines()
+		value :← parseNode()
 		skipWhitespaceAndComments()
 		return value
+	end
+
+	method parseNode() → YamlValue is
+		if isBlockSequenceStart() then
+			return parseBlockSequence(current_col)
+		end
+		return parseValue(FALSE)
 	end
 
 	method parseValue(in_flow : 𝔹) → YamlValue is
@@ -149,6 +166,168 @@ object YamlParseState ⁌
 				elseif sep = RBRACE then
 					reader.readUnicode()
 				end
+			end
+		end
+	end
+
+	method isBlockSequenceStart() → 𝔹 is
+		la :← reader.lookaheadUnicode()
+		if la = TextReader.END_OF_TEXT then
+			return FALSE
+		else
+			if la ≠ DASH then
+				return FALSE
+			end
+			next :← reader.lookaheadUnicode(2)
+			if next = TextReader.END_OF_TEXT then
+				return TRUE
+			else
+				if next = SPACE ⩒ next = TAB ⩒ next = NEWLINE ⩒ next = CR then
+					return TRUE
+				end
+				return FALSE
+			end
+		end
+	end
+
+	method parseBlockSequence(indent : ℕ₃₂) → YamlSequence is
+		builder :← ArrayBuilder⟦YamlValue⟧()
+		collectBlockSequenceItems(indent, builder)
+		return YamlSequence(builder.done())
+	end
+
+	method collectBlockSequenceItems(indent : ℕ₃₂, builder : ArrayBuilder⟦YamlValue⟧) → () is
+		if ¬ isBlockSequenceStart() then
+			return
+		end
+		if current_col ≠ indent then
+			return
+		end
+		reader.readUnicode()
+		current_col ← current_col + 1
+		value :← parseBlockItemValue(indent)
+		builder.append(value)
+		collectBlockSequenceItems(indent, builder)
+	end
+
+	method parseBlockItemValue(parent_indent : ℕ₃₂) → YamlValue is
+		la :← reader.lookaheadUnicode()
+		if la = TextReader.END_OF_TEXT then
+			return YamlNull()
+		else
+			if la = SPACE ⩒ la = TAB then
+				reader.readUnicode()
+				current_col ← current_col + 1
+				skipInlineSpaces()
+				la2 :← reader.lookaheadUnicode()
+				if la2 = TextReader.END_OF_TEXT then
+					return YamlNull()
+				else
+					if la2 = NEWLINE ⩒ la2 = CR ⩒ la2 = HASH then
+						return emptyItemContinuation(parent_indent)
+					end
+					inline_value :← parseValue(FALSE)
+					finishLine()
+					skipBlankLines()
+					return inline_value
+				end
+			end
+			if la = NEWLINE ⩒ la = CR then
+				return emptyItemContinuation(parent_indent)
+			end
+			return YamlNull()
+		end
+	end
+
+	method emptyItemContinuation(parent_indent : ℕ₃₂) → YamlValue is
+		finishLine()
+		skipBlankLines()
+		if isBlockSequenceStart() ⩑ current_col > parent_indent then
+			return parseBlockSequence(current_col)
+		end
+		return YamlNull()
+	end
+
+	method skipInlineSpaces() → () is
+		la :← reader.lookaheadUnicode()
+		if la = TextReader.END_OF_TEXT then
+			return
+		else
+			if la = SPACE ⩒ la = TAB then
+				reader.readUnicode()
+				current_col ← current_col + 1
+				skipInlineSpaces()
+			end
+		end
+	end
+
+	method finishLine() → () is
+		la :← reader.lookaheadUnicode()
+		if la = TextReader.END_OF_TEXT then
+			return
+		else
+			if la = SPACE ⩒ la = TAB then
+				reader.readUnicode()
+				current_col ← current_col + 1
+				finishLine()
+				return
+			end
+			if la = HASH then
+				skipToEndOfLine()
+				finishLine()
+				return
+			end
+			if la = NEWLINE then
+				reader.readUnicode()
+				current_col ← 0
+				return
+			end
+			if la = CR then
+				reader.readUnicode()
+				next :← reader.lookaheadUnicode()
+				if next ≠ TextReader.END_OF_TEXT then
+					if next = NEWLINE then
+						reader.readUnicode()
+					end
+				end
+				current_col ← 0
+				return
+			end
+		end
+	end
+
+	method skipBlankLines() → () is
+		la :← reader.lookaheadUnicode()
+		if la = TextReader.END_OF_TEXT then
+			return
+		else
+			if la = SPACE ⩒ la = TAB then
+				reader.readUnicode()
+				current_col ← current_col + 1
+				skipBlankLines()
+				return
+			end
+			if la = NEWLINE then
+				reader.readUnicode()
+				current_col ← 0
+				skipBlankLines()
+				return
+			end
+			if la = CR then
+				reader.readUnicode()
+				next :← reader.lookaheadUnicode()
+				if next ≠ TextReader.END_OF_TEXT then
+					if next = NEWLINE then
+						reader.readUnicode()
+					end
+				end
+				current_col ← 0
+				skipBlankLines()
+				return
+			end
+			if la = HASH then
+				skipToEndOfLine()
+				skipBlankLines()
 			end
 		end
 	end

@@ -250,4 +250,88 @@ test YaamlTest is
 		assert result.display() = “{x: 7, y: 8}”
 	end
 
+	test “parses a top-level block sequence of plain scalars” is
+		input :← “- a” ⋅ Unicode(10).toUnicode() ⋅ “- b” ⋅ Unicode(10).toUnicode() ⋅ “- c”
+		result :← YamlParser.parse(input)
+		assert result.display() = “[a, b, c]”
+	end
+
+	test “parses a block sequence with trailing newline” is
+		input :← “- a” ⋅ Unicode(10).toUnicode() ⋅ “- b” ⋅ Unicode(10).toUnicode()
+		result :← YamlParser.parse(input)
+		assert result.display() = “[a, b]”
+	end
+
+	test “resolves typed scalars inside a block sequence” is
+		input :← “- true” ⋅ Unicode(10).toUnicode() ⋅ “- 42” ⋅ Unicode(10).toUnicode() ⋅ “- null”
+		result :← YamlParser.parse(input)
+		assert result.display() = “[true, 42, null]”
+	end
+
+	test “preserves negative numbers as items” is
+		input :← “- -7” ⋅ Unicode(10).toUnicode() ⋅ “- -1.5”
+		result :← YamlParser.parse(input)
+		assert result.display() = “[-7, -1.5]”
+	end
+
+	test “parses a block sequence containing quoted scalars” is
+		input :← “- "hello"” ⋅ Unicode(10).toUnicode() ⋅ “- 'world'”
+		result :← YamlParser.parse(input)
+		assert result.display() = “[hello, world]”
+	end
+
+	test “parses a block sequence containing a flow sequence” is
+		input :← “- [x, y]” ⋅ Unicode(10).toUnicode() ⋅ “- z”
+		result :← YamlParser.parse(input)
+		assert result.display() = “[[x, y], z]”
+	end
+
+	test “parses a block sequence containing a flow mapping” is
+		input :← “- {a: 1}” ⋅ Unicode(10).toUnicode() ⋅ “- {b: 2}”
+		result :← YamlParser.parse(input)
+		assert result.display() = “[{a: 1}, {b: 2}]”
+	end
+
+	test “ignores blank lines between block sequence items” is
+		nl :← Unicode(10).toUnicode()
+		input :← “- a” ⋅ nl ⋅ nl ⋅ “- b” ⋅ nl ⋅ “- c”
+		result :← YamlParser.parse(input)
+		assert result.display() = “[a, b, c]”
+	end
+
+	test “ignores comment-only lines between block sequence items” is
+		nl :← Unicode(10).toUnicode()
+		input :← “- a” ⋅ nl ⋅ “# mid” ⋅ nl ⋅ “- b”
+		result :← YamlParser.parse(input)
+		assert result.display() = “[a, b]”
+	end
+
+	test “ignores end-of-line comment on a block sequence item” is
+		nl :← Unicode(10).toUnicode()
+		input :← “- a # first” ⋅ nl ⋅ “- b”
+		result :← YamlParser.parse(input)
+		assert result.display() = “[a, b]”
+	end
+
+	test “parses an empty block sequence item as null” is
+		nl :← Unicode(10).toUnicode()
+		input :← “-” ⋅ nl ⋅ “- a”
+		result :← YamlParser.parse(input)
+		assert result.display() = “[null, a]”
+	end
+
+	test “parses a nested block sequence on indented lines” is
+		nl :← Unicode(10).toUnicode()
+		input :← “-” ⋅ nl ⋅ “  - a” ⋅ nl ⋅ “  - b” ⋅ nl ⋅ “- c”
+		result :← YamlParser.parse(input)
+		assert result.display() = “[[a, b], c]”
+	end
+
+	test “parses a deeply nested block sequence” is
+		nl :← Unicode(10).toUnicode()
+		input :← “-” ⋅ nl ⋅ “  -” ⋅ nl ⋅ “    - a” ⋅ nl ⋅ “    - b” ⋅ nl ⋅ “  - c”
+		result :← YamlParser.parse(input)
+		assert result.display() = “[[[a, b], c]]”
+	end
+
 end
