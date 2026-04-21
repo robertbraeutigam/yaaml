@@ -1,0 +1,97 @@
+
+namespace //github.com/robertbraeutigam/yaaml/
+
+import //aalgola.org/core/character/Unicode
+import //github.com/robertbraeutigam/yaaml/YamlChars
+
+test YamlCharsTest is
+
+	test “isSpaceOrTab is TRUE for SPACE” is
+		assert YamlChars.isSpaceOrTab(YamlChars.SPACE)
+	end
+
+	test “isSpaceOrTab is TRUE for TAB” is
+		assert YamlChars.isSpaceOrTab(YamlChars.TAB)
+	end
+
+	test “isSpaceOrTab is FALSE for NEWLINE” is
+		assert ¬ YamlChars.isSpaceOrTab(YamlChars.NEWLINE)
+	end
+
+	test “isSpaceOrTab is FALSE for CR” is
+		assert ¬ YamlChars.isSpaceOrTab(YamlChars.CR)
+	end
+
+	test “isSpaceOrTab is FALSE for letter a” is
+		assert ¬ YamlChars.isSpaceOrTab(Unicode(97).toUnicode())
+	end
+
+	test “isLineBreak is TRUE for NEWLINE” is
+		assert YamlChars.isLineBreak(YamlChars.NEWLINE)
+	end
+
+	test “isLineBreak is TRUE for CR” is
+		assert YamlChars.isLineBreak(YamlChars.CR)
+	end
+
+	test “isLineBreak is FALSE for SPACE” is
+		assert ¬ YamlChars.isLineBreak(YamlChars.SPACE)
+	end
+
+	test “isLineBreak is FALSE for TAB” is
+		assert ¬ YamlChars.isLineBreak(YamlChars.TAB)
+	end
+
+	test “isWhite is TRUE for SPACE” is
+		assert YamlChars.isWhite(YamlChars.SPACE)
+	end
+
+	test “isWhite is TRUE for TAB” is
+		assert YamlChars.isWhite(YamlChars.TAB)
+	end
+
+	test “isWhite is TRUE for NEWLINE” is
+		assert YamlChars.isWhite(YamlChars.NEWLINE)
+	end
+
+	test “isWhite is TRUE for CR” is
+		assert YamlChars.isWhite(YamlChars.CR)
+	end
+
+	test “isWhite is FALSE for letter a” is
+		assert ¬ YamlChars.isWhite(Unicode(97).toUnicode())
+	end
+
+	test “isWhite is FALSE for hash” is
+		assert ¬ YamlChars.isWhite(YamlChars.HASH)
+	end
+
+	test “isFlowEnd is TRUE for COMMA” is
+		assert YamlChars.isFlowEnd(YamlChars.COMMA)
+	end
+
+	test “isFlowEnd is TRUE for RBRACKET” is
+		assert YamlChars.isFlowEnd(YamlChars.RBRACKET)
+	end
+
+	test “isFlowEnd is TRUE for RBRACE” is
+		assert YamlChars.isFlowEnd(YamlChars.RBRACE)
+	end
+
+	test “isFlowEnd is FALSE for LBRACKET” is
+		assert ¬ YamlChars.isFlowEnd(YamlChars.LBRACKET)
+	end
+
+	test “isFlowEnd is FALSE for LBRACE” is
+		assert ¬ YamlChars.isFlowEnd(YamlChars.LBRACE)
+	end
+
+	test “isFlowEnd is FALSE for COLON” is
+		assert ¬ YamlChars.isFlowEnd(YamlChars.COLON)
+	end
+
+	test “isFlowEnd is FALSE for SPACE” is
+		assert ¬ YamlChars.isFlowEnd(YamlChars.SPACE)
+	end
+
+end

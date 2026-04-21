@@ -1,0 +1,36 @@
+
+namespace //github.com/robertbraeutigam/yaaml/
+
+import //github.com/robertbraeutigam/yaaml/YamlParseException
+
+test YamlParseExceptionTest is
+
+	test “stores line column and message verbatim” is
+		e :← YamlParseException(3, 7, “boom”)
+		assert e.line() = 3
+		assert e.column() = 7
+		assert e.message() = “boom”
+	end
+
+	test “accepts empty message” is
+		e :← YamlParseException(1, 1, “”)
+		assert e.message() = “”
+	end
+
+	test “accepts large line and column numbers” is
+		e :← YamlParseException(1000, 500, “far away”)
+		assert e.line() = 1000
+		assert e.column() = 500
+	end
+
+	test “is catchable as its own type” is
+		try
+			throw YamlParseException(2, 4, “oops”)
+		catch caught : YamlParseException do
+			assert caught.line() = 2
+			assert caught.column() = 4
+			assert caught.message() = “oops”
+		end
+	end
+
+end

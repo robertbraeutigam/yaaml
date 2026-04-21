@@ -1,0 +1,174 @@
+
+namespace //github.com/robertbraeutigam/yaaml/
+
+import //aalgola.org/core/character/Unicode
+import //github.com/robertbraeutigam/yaaml/YamlScanner
+import //github.com/robertbraeutigam/yaaml/YamlQuotedScalarReader
+
+test YamlQuotedScalarReaderTest is
+
+	test “double-quoted scalar returns its body verbatim” is
+		scanner :← YamlScanner(“"hello"”)
+		result :← YamlQuotedScalarReader(scanner).readDoubleQuoted()
+		assert result = “hello”
+	end
+
+	test “double-quoted scalar preserves inner whitespace” is
+		scanner :← YamlScanner(“"hello world"”)
+		result :← YamlQuotedScalarReader(scanner).readDoubleQuoted()
+		assert result = “hello world”
+	end
+
+	test “double-quoted empty scalar yields empty string” is
+		scanner :← YamlScanner(“""”)
+		result :← YamlQuotedScalarReader(scanner).readDoubleQuoted()
+		assert result = “”
+	end
+
+	test “double-quoted backslash-n escape decodes to newline” is
+		scanner :← YamlScanner(“"a\nb"”)
+		result :← YamlQuotedScalarReader(scanner).readDoubleQuoted()
+		assert result = “a” ⋅ Unicode(10).toUnicode() ⋅ “b”
+	end
+
+	test “double-quoted backslash-t escape decodes to tab” is
+		scanner :← YamlScanner(“"a\tb"”)
+		result :← YamlQuotedScalarReader(scanner).readDoubleQuoted()
+		assert result = “a” ⋅ Unicode(9).toUnicode() ⋅ “b”
+	end
+
+	test “double-quoted backslash-r escape decodes to carriage return” is
+		scanner :← YamlScanner(“"a\rb"”)
+		result :← YamlQuotedScalarReader(scanner).readDoubleQuoted()
+		assert result = “a” ⋅ Unicode(13).toUnicode() ⋅ “b”
+	end
+
+	test “double-quoted backslash-0 escape decodes to NUL” is
+		scanner :← YamlScanner(“"a\0b"”)
+		result :← YamlQuotedScalarReader(scanner).readDoubleQuoted()
+		assert result = “a” ⋅ Unicode(0).toUnicode() ⋅ “b”
+	end
+
+	test “double-quoted backslash-a escape decodes to BEL” is
+		scanner :← YamlScanner(“"a\ab"”)
+		result :← YamlQuotedScalarReader(scanner).readDoubleQuoted()
+		assert result = “a” ⋅ Unicode(7).toUnicode() ⋅ “b”
+	end
+
+	test “double-quoted backslash-b escape decodes to BS” is
+		scanner :← YamlScanner(“"a\bb"”)
+		result :← YamlQuotedScalarReader(scanner).readDoubleQuoted()
+		assert result = “a” ⋅ Unicode(8).toUnicode() ⋅ “b”
+	end
+
+	test “double-quoted backslash-f escape decodes to FF” is
+		scanner :← YamlScanner(“"a\fb"”)
+		result :← YamlQuotedScalarReader(scanner).readDoubleQuoted()
+		assert result = “a” ⋅ Unicode(12).toUnicode() ⋅ “b”
+	end
+
+	test “double-quoted backslash-v escape decodes to VT” is
+		scanner :← YamlScanner(“"a\vb"”)
+		result :← YamlQuotedScalarReader(scanner).readDoubleQuoted()
+		assert result = “a” ⋅ Unicode(11).toUnicode() ⋅ “b”
+	end
+
+	test “double-quoted backslash-e escape decodes to ESC” is
+		scanner :← YamlScanner(“"a\eb"”)
+		result :← YamlQuotedScalarReader(scanner).readDoubleQuoted()
+		assert result = “a” ⋅ Unicode(27).toUnicode() ⋅ “b”
+	end
+
+	test “double-quoted backslash-backslash escape decodes to backslash” is
+		scanner :← YamlScanner(“"a\\b"”)
+		result :← YamlQuotedScalarReader(scanner).readDoubleQuoted()
+		assert result = “a\b”
+	end
+
+	test “double-quoted backslash-doublequote escape decodes to literal quote” is
+		scanner :← YamlScanner(“"a\"b"”)
+		result :← YamlQuotedScalarReader(scanner).readDoubleQuoted()
+		assert result = “a"b”
+	end
+
+	test “double-quoted backslash-slash escape decodes to forward slash” is
+		scanner :← YamlScanner(“"a\/b"”)
+		result :← YamlQuotedScalarReader(scanner).readDoubleQuoted()
+		assert result = “a/b”
+	end
+
+	test “double-quoted backslash-u hex escape decodes to unicode code point” is
+		scanner :← YamlScanner(“"\u00e9"”)
+		result :← YamlQuotedScalarReader(scanner).readDoubleQuoted()
+		assert result = Unicode(233).toUnicode() ⋅ “”
+	end
+
+	test “double-quoted unknown escape passes through literally” is
+		scanner :← YamlScanner(“"a\zb"”)
+		result :← YamlQuotedScalarReader(scanner).readDoubleQuoted()
+		assert result = “a\zb”
+	end
+
+	test “double-quoted scalar leaves cursor past closing quote” is
+		scanner :← YamlScanner(“"hi" trailing”)
+		YamlQuotedScalarReader(scanner).readDoubleQuoted()
+		assert scanner.currentColumn() = 4
+	end
+
+	test “single-quoted scalar returns its body verbatim” is
+		scanner :← YamlScanner(“'hello'”)
+		result :← YamlQuotedScalarReader(scanner).readSingleQuoted()
+		assert result = “hello”
+	end
+
+	test “single-quoted empty scalar yields empty string” is
+		scanner :← YamlScanner(“''”)
+		result :← YamlQuotedScalarReader(scanner).readSingleQuoted()
+		assert result = “”
+	end
+
+	test “single-quoted scalar keeps punctuation literal” is
+		scanner :← YamlScanner(“'key: value, 42!'”)
+		result :← YamlQuotedScalarReader(scanner).readSingleQuoted()
+		assert result = “key: value, 42!”
+	end
+
+	test “single-quoted scalar keeps backslash literal” is
+		scanner :← YamlScanner(“'a\nb'”)
+		result :← YamlQuotedScalarReader(scanner).readSingleQuoted()
+		assert result = “a\nb”
+	end
+
+	test “single-quoted '' decodes to single apostrophe” is
+		scanner :← YamlScanner(“'it''s'”)
+		result :← YamlQuotedScalarReader(scanner).readSingleQuoted()
+		assert result = “it's”
+	end
+
+	test “single-quoted scalar leaves cursor past closing quote” is
+		scanner :← YamlScanner(“'hi' trailing”)
+		YamlQuotedScalarReader(scanner).readSingleQuoted()
+		assert scanner.currentColumn() = 4
+	end
+
+	test “unterminated double-quoted scalar throws parse exception” is
+		scanner :← YamlScanner(“"oops”)
+		try
+			YamlQuotedScalarReader(scanner).readDoubleQuoted()
+			assert FALSE
+		catch e : YamlParseException do
+			assert e.message() = “unterminated double-quoted scalar”
+		end
+	end
+
+	test “unterminated single-quoted scalar throws parse exception” is
+		scanner :← YamlScanner(“'oops”)
+		try
+			YamlQuotedScalarReader(scanner).readSingleQuoted()
+			assert FALSE
+		catch e : YamlParseException do
+			assert e.message() = “unterminated single-quoted scalar”
+		end
+	end
+
+end

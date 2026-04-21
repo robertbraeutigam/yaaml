@@ -1,0 +1,124 @@
+
+namespace //github.com/robertbraeutigam/yaaml/
+
+import //aalgola.org/core/collection/cdt/array/ArrayBuilder
+import //github.com/robertbraeutigam/yaaml/YamlValue
+import //github.com/robertbraeutigam/yaaml/YamlScalar
+import //github.com/robertbraeutigam/yaaml/YamlBool
+import //github.com/robertbraeutigam/yaaml/YamlInt
+import //github.com/robertbraeutigam/yaaml/YamlFloat
+import //github.com/robertbraeutigam/yaaml/YamlNull
+import //github.com/robertbraeutigam/yaaml/YamlSequence
+import //github.com/robertbraeutigam/yaaml/YamlMapping
+import //github.com/robertbraeutigam/yaaml/YamlMappingEntry
+
+test YamlValuesTest is
+
+	test “YamlScalar display returns raw content” is
+		value :← YamlScalar(“hello”)
+		assert value.display() = “hello”
+	end
+
+	test “YamlScalar preserves empty content on display” is
+		value :← YamlScalar(“”)
+		assert value.display() = “”
+	end
+
+	test “YamlBool TRUE displays as lowercase true” is
+		value :← YamlBool(TRUE)
+		assert value.display() = “true”
+	end
+
+	test “YamlBool FALSE displays as lowercase false” is
+		value :← YamlBool(FALSE)
+		assert value.display() = “false”
+	end
+
+	test “YamlInt display returns raw text” is
+		value :← YamlInt(“42”)
+		assert value.display() = “42”
+	end
+
+	test “YamlInt preserves sign on display” is
+		value :← YamlInt(“-7”)
+		assert value.display() = “-7”
+	end
+
+	test “YamlFloat display returns raw text” is
+		value :← YamlFloat(“3.14”)
+		assert value.display() = “3.14”
+	end
+
+	test “YamlFloat preserves scientific notation on display” is
+		value :← YamlFloat(“-1.5e-3”)
+		assert value.display() = “-1.5e-3”
+	end
+
+	test “YamlNull always displays as null” is
+		value :← YamlNull()
+		assert value.display() = “null”
+	end
+
+	test “empty YamlSequence displays as empty brackets” is
+		items_builder :← ArrayBuilder⟦YamlValue⟧()
+		value :← YamlSequence(items_builder.done())
+		assert value.display() = “[]”
+	end
+
+	test “single-element YamlSequence displays without comma” is
+		items_builder :← ArrayBuilder⟦YamlValue⟧()
+		items_builder.append(YamlScalar(“a”))
+		value :← YamlSequence(items_builder.done())
+		assert value.display() = “[a]”
+	end
+
+	test “multi-element YamlSequence joins with comma-space” is
+		items_builder :← ArrayBuilder⟦YamlValue⟧()
+		items_builder.append(YamlScalar(“a”))
+		items_builder.append(YamlScalar(“b”))
+		items_builder.append(YamlScalar(“c”))
+		value :← YamlSequence(items_builder.done())
+		assert value.display() = “[a, b, c]”
+	end
+
+	test “YamlSequence recursively displays nested values” is
+		inner_builder :← ArrayBuilder⟦YamlValue⟧()
+		inner_builder.append(YamlInt(“1”))
+		inner_builder.append(YamlBool(TRUE))
+		outer_builder :← ArrayBuilder⟦YamlValue⟧()
+		outer_builder.append(YamlSequence(inner_builder.done()))
+		outer_builder.append(YamlNull())
+		value :← YamlSequence(outer_builder.done())
+		assert value.display() = “[[1, true], null]”
+	end
+
+	test “empty YamlMapping displays as empty braces” is
+		entries_builder :← ArrayBuilder⟦YamlMappingEntry⟧()
+		value :← YamlMapping(entries_builder.done())
+		assert value.display() = “{}”
+	end
+
+	test “single-entry YamlMapping renders key colon value” is
+		entries_builder :← ArrayBuilder⟦YamlMappingEntry⟧()
+		entries_builder.append(YamlMappingEntry(YamlScalar(“name”), YamlScalar(“Alice”)))
+		value :← YamlMapping(entries_builder.done())
+		assert value.display() = “{name: Alice}”
+	end
+
+	test “multi-entry YamlMapping joins entries with comma-space” is
+		entries_builder :← ArrayBuilder⟦YamlMappingEntry⟧()
+		entries_builder.append(YamlMappingEntry(YamlScalar(“a”), YamlInt(“1”)))
+		entries_builder.append(YamlMappingEntry(YamlScalar(“b”), YamlInt(“2”)))
+		value :← YamlMapping(entries_builder.done())
+		assert value.display() = “{a: 1, b: 2}”
+	end
+
+	test “YamlMappingEntry stores key and value fields” is
+		key :← YamlScalar(“k”)
+		val :← YamlInt(“7”)
+		entry :← YamlMappingEntry(key, val)
+		assert entry.key.display() = “k”
+		assert entry.value.display() = “7”
+	end
+
+end

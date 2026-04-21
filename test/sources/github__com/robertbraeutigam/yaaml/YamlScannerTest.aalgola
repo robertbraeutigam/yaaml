@@ -1,0 +1,226 @@
+
+namespace //github.com/robertbraeutigam/yaaml/
+
+import //aalgola.org/core/character/Unicode
+import //aalgola.org/core/io/text/TextReader
+import //github.com/robertbraeutigam/yaaml/YamlChars
+import //github.com/robertbraeutigam/yaaml/YamlScanner
+
+test YamlScannerTest is
+
+	test “new scanner starts on line 1 column 0” is
+		scanner :← YamlScanner(“abc”)
+		assert scanner.currentLine() = 1
+		assert scanner.currentColumn() = 0
+	end
+
+	test “advance past a letter increments column” is
+		scanner :← YamlScanner(“abc”)
+		scanner.advance()
+		assert scanner.currentLine() = 1
+		assert scanner.currentColumn() = 1
+	end
+
+	test “repeated advance accumulates column count” is
+		scanner :← YamlScanner(“abcd”)
+		scanner.advance()
+		scanner.advance()
+		scanner.advance()
+		assert scanner.currentColumn() = 3
+	end
+
+	test “advance across newline resets column and bumps line” is
+		nl :← Unicode(10).toUnicode()
+		scanner :← YamlScanner(“a” ⋅ nl ⋅ “b”)
+		scanner.advance()
+		scanner.advance()
+		assert scanner.currentLine() = 2
+		assert scanner.currentColumn() = 0
+	end
+
+	test “advance across CR+NEWLINE consumes both as one line break” is
+		cr :← Unicode(13).toUnicode()
+		nl :← Unicode(10).toUnicode()
+		scanner :← YamlScanner(“a” ⋅ cr ⋅ nl ⋅ “b”)
+		scanner.advance()
+		scanner.advance()
+		scanner.advance()
+		assert scanner.currentLine() = 2
+		assert scanner.currentColumn() = 1
+	end
+
+	test “advance across bare CR bumps line and resets column” is
+		cr :← Unicode(13).toUnicode()
+		scanner :← YamlScanner(“a” ⋅ cr ⋅ “b”)
+		scanner.advance()
+		scanner.advance()
+		assert scanner.currentLine() = 2
+		assert scanner.currentColumn() = 0
+	end
+
+	test “advance at end of text is a no-op” is
+		scanner :← YamlScanner(“”)
+		scanner.advance()
+		assert scanner.currentLine() = 1
+		assert scanner.currentColumn() = 0
+	end
+
+	test “skipInlineSpaces consumes run of spaces and tabs” is
+		scanner :← YamlScanner(“   	 abc”)
+		scanner.skipInlineSpaces()
+		assert scanner.currentColumn() = 5
+	end
+
+	test “skipInlineSpaces stops at a newline without crossing it” is
+		nl :← Unicode(10).toUnicode()
+		scanner :← YamlScanner(“  ” ⋅ nl ⋅ “x”)
+		scanner.skipInlineSpaces()
+		assert scanner.currentLine() = 1
+		assert scanner.currentColumn() = 2
+	end
+
+	test “skipInlineSpaces does nothing on a non-whitespace char” is
+		scanner :← YamlScanner(“abc”)
+		scanner.skipInlineSpaces()
+		assert scanner.currentColumn() = 0
+	end
+
+	test “skipBlankLines skips across blank lines up to content” is
+		nl :← Unicode(10).toUnicode()
+		scanner :← YamlScanner(nl ⋅ “  ” ⋅ nl ⋅ “content”)
+		scanner.skipBlankLines()
+		assert scanner.currentLine() = 3
+		assert scanner.currentColumn() = 0
+	end
+
+	test “skipBlankLines also skips comment-only lines” is
+		nl :← Unicode(10).toUnicode()
+		scanner :← YamlScanner(“# comment” ⋅ nl ⋅ “x”)
+		scanner.skipBlankLines()
+		assert scanner.currentLine() = 2
+	end
+
+	test “skipWhitespaceAndComments skips leading blanks and comment to next content” is
+		nl :← Unicode(10).toUnicode()
+		scanner :← YamlScanner(“  # hi” ⋅ nl ⋅ “   y”)
+		scanner.skipWhitespaceAndComments()
+		assert scanner.currentLine() = 2
+		assert scanner.currentColumn() = 3
+	end
+
+	test “skipToEndOfLine stops at newline without crossing it” is
+		nl :← Unicode(10).toUnicode()
+		scanner :← YamlScanner(“abc” ⋅ nl ⋅ “x”)
+		scanner.skipToEndOfLine()
+		assert scanner.currentLine() = 1
+		assert scanner.currentColumn() = 3
+	end
+
+	test “skipToEndOfLine stops at end of text” is
+		scanner :← YamlScanner(“abc”)
+		scanner.skipToEndOfLine()
+		assert scanner.currentColumn() = 3
+	end
+
+	test “skipNSpaces consumes at most N leading spaces” is
+		scanner :← YamlScanner(“     abc”)
+		scanner.skipNSpaces(3)
+		assert scanner.currentColumn() = 3
+	end
+
+	test “skipNSpaces stops early at a non-space” is
+		scanner :← YamlScanner(“  abc”)
+		scanner.skipNSpaces(10)
+		assert scanner.currentColumn() = 2
+	end
+
+	test “skipNSpaces with 0 is a no-op” is
+		scanner :← YamlScanner(“     abc”)
+		scanner.skipNSpaces(0)
+		assert scanner.currentColumn() = 0
+	end
+
+	test “readLineText returns this line content and advances past newline” is
+		nl :← Unicode(10).toUnicode()
+		scanner :← YamlScanner(“hello” ⋅ nl ⋅ “world”)
+		line :← scanner.readLineText()
+		assert line = “hello”
+		assert scanner.currentLine() = 2
+		assert scanner.currentColumn() = 0
+	end
+
+	test “readLineText at end-of-text returns remaining content” is
+		scanner :← YamlScanner(“tail”)
+		line :← scanner.readLineText()
+		assert line = “tail”
+	end
+
+	test “readLineText on empty input returns empty string” is
+		scanner :← YamlScanner(“”)
+		line :← scanner.readLineText()
+		assert line = “”
+	end
+
+	test “peekLineIndent counts leading spaces without consuming” is
+		scanner :← YamlScanner(“    hi”)
+		assert scanner.peekLineIndent() = 4
+		assert scanner.currentColumn() = 0
+	end
+
+	test “peekLineIndent returns 0 when line starts with non-space” is
+		scanner :← YamlScanner(“hi”)
+		assert scanner.peekLineIndent() = 0
+	end
+
+	test “isLineBlankAtPeek detects blank indented line” is
+		nl :← Unicode(10).toUnicode()
+		scanner :← YamlScanner(“    ” ⋅ nl ⋅ “x”)
+		assert scanner.isLineBlankAtPeek(4)
+	end
+
+	test “isLineBlankAtPeek is FALSE when content follows indent” is
+		scanner :← YamlScanner(“    abc”)
+		assert ¬ scanner.isLineBlankAtPeek(4)
+	end
+
+	test “isColonThenBreak detects colon-space sequence” is
+		scanner :← YamlScanner(“: value”)
+		assert scanner.isColonThenBreak()
+	end
+
+	test “isColonThenBreak detects colon at end of text” is
+		scanner :← YamlScanner(“:”)
+		assert scanner.isColonThenBreak()
+	end
+
+	test “isColonThenBreak is FALSE for colon followed by non-white” is
+		scanner :← YamlScanner(“:foo”)
+		assert ¬ scanner.isColonThenBreak()
+	end
+
+	test “isColonThenBreak is FALSE when cursor is not on a colon” is
+		scanner :← YamlScanner(“x: value”)
+		assert ¬ scanner.isColonThenBreak()
+	end
+
+	test “isBlockSequenceStart detects dash-space sequence” is
+		scanner :← YamlScanner(“- item”)
+		assert scanner.isBlockSequenceStart()
+	end
+
+	test “isBlockSequenceStart detects dash at end of text” is
+		scanner :← YamlScanner(“-”)
+		assert scanner.isBlockSequenceStart()
+	end
+
+	test “isBlockSequenceStart is FALSE for dash-digit sequence” is
+		scanner :← YamlScanner(“-7”)
+		assert ¬ scanner.isBlockSequenceStart()
+	end
+
+	test “isBlockSequenceStart is FALSE when cursor is not on a dash” is
+		scanner :← YamlScanner(“x - y”)
+		assert ¬ scanner.isBlockSequenceStart()
+	end
+
+end

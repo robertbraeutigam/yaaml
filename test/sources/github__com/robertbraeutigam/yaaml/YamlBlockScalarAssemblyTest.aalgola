@@ -1,0 +1,128 @@
+
+namespace //github.com/robertbraeutigam/yaaml/
+
+import //aalgola.org/core/character/Unicode
+import //aalgola.org/core/collection/cdt/array/ArrayBuilder
+import //github.com/robertbraeutigam/yaaml/YamlBlockScalarAssembly
+
+test YamlBlockScalarAssemblyTest is
+
+	test “literal assembly of empty line list yields empty string” is
+		builder :← ArrayBuilder⟦String⟧()
+		result :← YamlBlockScalarAssembly.assembleLiteral(builder.done())
+		assert result = “”
+	end
+
+	test “literal assembly of single line appends one newline” is
+		nl :← Unicode(10).toUnicode()
+		builder :← ArrayBuilder⟦String⟧()
+		builder.append(“solo”)
+		result :← YamlBlockScalarAssembly.assembleLiteral(builder.done())
+		assert result = “solo” ⋅ nl
+	end
+
+	test “literal assembly joins lines with newlines including a trailing one” is
+		nl :← Unicode(10).toUnicode()
+		builder :← ArrayBuilder⟦String⟧()
+		builder.append(“a”)
+		builder.append(“b”)
+		builder.append(“c”)
+		result :← YamlBlockScalarAssembly.assembleLiteral(builder.done())
+		assert result = “a” ⋅ nl ⋅ “b” ⋅ nl ⋅ “c” ⋅ nl
+	end
+
+	test “literal assembly preserves blank lines as empty entries” is
+		nl :← Unicode(10).toUnicode()
+		builder :← ArrayBuilder⟦String⟧()
+		builder.append(“a”)
+		builder.append(“”)
+		builder.append(“b”)
+		result :← YamlBlockScalarAssembly.assembleLiteral(builder.done())
+		assert result = “a” ⋅ nl ⋅ nl ⋅ “b” ⋅ nl
+	end
+
+	test “folded assembly of empty line list yields empty string” is
+		builder :← ArrayBuilder⟦String⟧()
+		result :← YamlBlockScalarAssembly.assembleFolded(builder.done())
+		assert result = “”
+	end
+
+	test “folded assembly of single line appends one newline” is
+		nl :← Unicode(10).toUnicode()
+		builder :← ArrayBuilder⟦String⟧()
+		builder.append(“solo”)
+		result :← YamlBlockScalarAssembly.assembleFolded(builder.done())
+		assert result = “solo” ⋅ nl
+	end
+
+	test “folded assembly joins consecutive content lines with a space” is
+		nl :← Unicode(10).toUnicode()
+		builder :← ArrayBuilder⟦String⟧()
+		builder.append(“a”)
+		builder.append(“b”)
+		builder.append(“c”)
+		result :← YamlBlockScalarAssembly.assembleFolded(builder.done())
+		assert result = “a b c” ⋅ nl
+	end
+
+	test “folded assembly renders a blank line as a single newline” is
+		nl :← Unicode(10).toUnicode()
+		builder :← ArrayBuilder⟦String⟧()
+		builder.append(“a”)
+		builder.append(“”)
+		builder.append(“b”)
+		result :← YamlBlockScalarAssembly.assembleFolded(builder.done())
+		assert result = “a” ⋅ nl ⋅ “b” ⋅ nl
+	end
+
+	test “folded assembly preserves multiple blank lines between content as newlines” is
+		nl :← Unicode(10).toUnicode()
+		builder :← ArrayBuilder⟦String⟧()
+		builder.append(“a”)
+		builder.append(“”)
+		builder.append(“”)
+		builder.append(“b”)
+		result :← YamlBlockScalarAssembly.assembleFolded(builder.done())
+		assert result = “a” ⋅ nl ⋅ nl ⋅ “b” ⋅ nl
+	end
+
+	test “folded assembly keeps trailing blank lines after content” is
+		nl :← Unicode(10).toUnicode()
+		builder :← ArrayBuilder⟦String⟧()
+		builder.append(“a”)
+		builder.append(“”)
+		builder.append(“”)
+		result :← YamlBlockScalarAssembly.assembleFolded(builder.done())
+		assert result = “a” ⋅ nl ⋅ nl ⋅ nl
+	end
+
+	test “apply clip chomping adds single newline if any trailing present” is
+		nl :← Unicode(10).toUnicode()
+		result :← YamlBlockScalarAssembly.applyChomping(“abc” ⋅ nl ⋅ nl ⋅ nl, 0)
+		assert result = “abc” ⋅ nl
+	end
+
+	test “apply clip chomping keeps text without trailing newline unchanged” is
+		result :← YamlBlockScalarAssembly.applyChomping(“abc”, 0)
+		assert result = “abc”
+	end
+
+	test “apply strip chomping removes all trailing newlines” is
+		nl :← Unicode(10).toUnicode()
+		result :← YamlBlockScalarAssembly.applyChomping(“abc” ⋅ nl ⋅ nl, 1)
+		assert result = “abc”
+	end
+
+	test “apply keep chomping preserves all trailing newlines” is
+		nl :← Unicode(10).toUnicode()
+		input :← “abc” ⋅ nl ⋅ nl ⋅ nl
+		result :← YamlBlockScalarAssembly.applyChomping(input, 2)
+		assert result = input
+	end
+
+	test “apply strip chomping on empty text yields empty text” is
+		result :← YamlBlockScalarAssembly.applyChomping(“”, 1)
+		assert result = “”
+	end
+
+end

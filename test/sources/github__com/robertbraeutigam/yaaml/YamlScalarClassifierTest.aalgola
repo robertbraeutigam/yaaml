@@ -1,0 +1,150 @@
+
+namespace //github.com/robertbraeutigam/yaaml/
+
+import //github.com/robertbraeutigam/yaaml/YamlScalarClassifier
+import //github.com/robertbraeutigam/yaaml/YamlValue
+import //github.com/robertbraeutigam/yaaml/YamlScalar
+import //github.com/robertbraeutigam/yaaml/YamlBool
+import //github.com/robertbraeutigam/yaaml/YamlInt
+import //github.com/robertbraeutigam/yaaml/YamlFloat
+import //github.com/robertbraeutigam/yaaml/YamlNull
+
+test YamlScalarClassifierTest is
+
+	test “empty string classifies as null” is
+		result :← YamlScalarClassifier.classifyPlainScalar(“”)
+		assert result ⋹ YamlNull
+	end
+
+	test “lowercase null classifies as null” is
+		result :← YamlScalarClassifier.classifyPlainScalar(“null”)
+		assert result ⋹ YamlNull
+	end
+
+	test “capitalised Null classifies as null” is
+		result :← YamlScalarClassifier.classifyPlainScalar(“Null”)
+		assert result ⋹ YamlNull
+	end
+
+	test “uppercase NULL classifies as null” is
+		result :← YamlScalarClassifier.classifyPlainScalar(“NULL”)
+		assert result ⋹ YamlNull
+	end
+
+	test “tilde classifies as null” is
+		result :← YamlScalarClassifier.classifyPlainScalar(“~”)
+		assert result ⋹ YamlNull
+	end
+
+	test “lowercase true classifies as bool” is
+		result :← YamlScalarClassifier.classifyPlainScalar(“true”)
+		assert result ⋹ YamlBool
+		assert result.display() = “true”
+	end
+
+	test “capitalised True classifies as bool” is
+		result :← YamlScalarClassifier.classifyPlainScalar(“True”)
+		assert result ⋹ YamlBool
+		assert result.display() = “true”
+	end
+
+	test “uppercase TRUE classifies as bool” is
+		result :← YamlScalarClassifier.classifyPlainScalar(“TRUE”)
+		assert result ⋹ YamlBool
+		assert result.display() = “true”
+	end
+
+	test “lowercase false classifies as bool” is
+		result :← YamlScalarClassifier.classifyPlainScalar(“false”)
+		assert result ⋹ YamlBool
+		assert result.display() = “false”
+	end
+
+	test “uppercase FALSE classifies as bool” is
+		result :← YamlScalarClassifier.classifyPlainScalar(“FALSE”)
+		assert result ⋹ YamlBool
+		assert result.display() = “false”
+	end
+
+	test “plain decimal classifies as int” is
+		result :← YamlScalarClassifier.classifyPlainScalar(“42”)
+		assert result ⋹ YamlInt
+		assert result.display() = “42”
+	end
+
+	test “negative decimal classifies as int” is
+		result :← YamlScalarClassifier.classifyPlainScalar(“-7”)
+		assert result ⋹ YamlInt
+		assert result.display() = “-7”
+	end
+
+	test “positive sign decimal classifies as int” is
+		result :← YamlScalarClassifier.classifyPlainScalar(“+3”)
+		assert result ⋹ YamlInt
+		assert result.display() = “+3”
+	end
+
+	test “zero classifies as int” is
+		result :← YamlScalarClassifier.classifyPlainScalar(“0”)
+		assert result ⋹ YamlInt
+	end
+
+	test “lone sign does not classify as int” is
+		result :← YamlScalarClassifier.classifyPlainScalar(“-”)
+		assert ¬ (result ⋹ YamlInt)
+		assert ¬ (result ⋹ YamlFloat)
+		assert result ⋹ YamlScalar
+	end
+
+	test “decimal with fraction classifies as float” is
+		result :← YamlScalarClassifier.classifyPlainScalar(“3.14”)
+		assert result ⋹ YamlFloat
+		assert result.display() = “3.14”
+	end
+
+	test “negative fractional classifies as float” is
+		result :← YamlScalarClassifier.classifyPlainScalar(“-0.5”)
+		assert result ⋹ YamlFloat
+	end
+
+	test “exponent without dot classifies as float” is
+		result :← YamlScalarClassifier.classifyPlainScalar(“1e10”)
+		assert result ⋹ YamlFloat
+	end
+
+	test “scientific notation with signed exponent classifies as float” is
+		result :← YamlScalarClassifier.classifyPlainScalar(“-1.5e-3”)
+		assert result ⋹ YamlFloat
+		assert result.display() = “-1.5e-3”
+	end
+
+	test “bare dot does not classify as float” is
+		result :← YamlScalarClassifier.classifyPlainScalar(“.”)
+		assert ¬ (result ⋹ YamlFloat)
+		assert result ⋹ YamlScalar
+	end
+
+	test “float with trailing exponent marker rejected as float” is
+		result :← YamlScalarClassifier.classifyPlainScalar(“1e”)
+		assert ¬ (result ⋹ YamlFloat)
+		assert result ⋹ YamlScalar
+	end
+
+	test “two dots do not classify as float” is
+		result :← YamlScalarClassifier.classifyPlainScalar(“1.2.3”)
+		assert ¬ (result ⋹ YamlFloat)
+		assert result ⋹ YamlScalar
+	end
+
+	test “alphabetic text classifies as plain scalar” is
+		result :← YamlScalarClassifier.classifyPlainScalar(“hello”)
+		assert result ⋹ YamlScalar
+		assert result.display() = “hello”
+	end
+
+	test “mixed alphanumeric classifies as plain scalar” is
+		result :← YamlScalarClassifier.classifyPlainScalar(“abc123”)
+		assert result ⋹ YamlScalar
+	end
+
+end
