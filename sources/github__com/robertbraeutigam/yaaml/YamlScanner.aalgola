@@ -1,0 +1,256 @@
+namespace //github.com/robertbraeutigam/yaaml/
+
+import //aalgola.org/core/character/Unicode
+import //aalgola.org/core/util/parser/source/standard/StringSource
+import //aalgola.org/core/util/parser/source/SourceReader
+import //aalgola.org/core/io/text/TextReader
+
+⟦package⟧
+object YamlScanner ⁌
+	Cursor plus whitespace/line primitives for YAML parsing. Owns the
+	<c>StringSource</c>, <c>SourceReader</c>, and a column counter, and
+	exposes the read-only reader/source as final fields for lookahead
+	and offset queries. All character consumption must go through
+	<c>advance</c>, which is line-break-aware: it swallows
+	<c>NEWLINE</c>, <c>CR</c>, and <c>CR</c>+<c>NEWLINE</c> as one step
+	and resets the column to 0; any other character bumps the column
+	by one.
+⁍ is
+
+	const SPACE   : 𝔸 = Unicode(32).toUnicode()
+	const TAB     : 𝔸 = Unicode(9).toUnicode()
+	const NEWLINE : 𝔸 = Unicode(10).toUnicode()
+	const CR      : 𝔸 = Unicode(13).toUnicode()
+	const HASH    : 𝔸 = Unicode(35).toUnicode()
+
+	⟦public⟧
+	⟦final⟧
+	source : StringSource
+
+	⟦public⟧
+	⟦final⟧
+	reader : SourceReader
+
+	⟦private⟧
+	col : ℕ₃₂ ⁌
+		Column of the reader's current position on the current line.
+		Only meaningful at line-start decision points — the block-style
+		helpers (<c>skipBlankLines</c>, <c>finishLine</c>) always restore
+		it to the right value before a caller reads it.
+	⁍
+
+	⟦public⟧
+	init (input : String) is
+		self.source ← StringSource(input)
+		self.reader ← source.sourceReader()
+		self.col ← 0
+	end
+
+	⟦public⟧
+	method currentColumn() → ℕ₃₂ is
+		return col
+	end
+
+	⟦public⟧
+	method advance() → () ⁌
+		Consume one character at the cursor. Handles <c>NEWLINE</c>,
+		<c>CR</c>, and <c>CR</c>+<c>NEWLINE</c> as a single line break
+		(resets the column to 0); any other character bumps the column
+		by one. No-op at end of text.
+	⁍ is
+		la :← reader.lookaheadUnicode()
+		if la = TextReader.END_OF_TEXT then
+			return
+		else
+			reader.readUnicode()
+			if la = NEWLINE then
+				col ← 0
+			elseif la = CR then
+				next :← reader.lookaheadUnicode()
+				if next ≠ TextReader.END_OF_TEXT then
+					if next = NEWLINE then
+						reader.readUnicode()
+					end
+				end
+				col ← 0
+			else
+				col ← col + 1
+			end
+		end
+	end
+
+	⟦public⟧
+	method skipInlineSpaces() → () is
+		la :← reader.lookaheadUnicode()
+		if la = TextReader.END_OF_TEXT then
+			return
+		else
+			if isSpaceOrTab(la) then
+				advance()
+				skipInlineSpaces()
+			end
+		end
+	end
+
+	⟦public⟧
+	method finishLine() → () is
+		la :← reader.lookaheadUnicode()
+		if la = TextReader.END_OF_TEXT then
+			return
+		else
+			if isSpaceOrTab(la) then
+				advance()
+				finishLine()
+			elseif la = HASH then
+				skipToEndOfLine()
+				finishLine()
+			elseif isLineBreak(la) then
+				advance()
+			end
+		end
+	end
+
+	⟦public⟧
+	method skipBlankLines() → () is
+		la :← reader.lookaheadUnicode()
+		if la = TextReader.END_OF_TEXT then
+			return
+		else
+			if isSpaceOrTab(la) then
+				advance()
+				skipBlankLines()
+			elseif isLineBreak(la) then
+				advance()
+				skipBlankLines()
+			elseif la = HASH then
+				skipToEndOfLine()
+				skipBlankLines()
+			end
+		end
+	end
+
+	⟦public⟧
+	method skipWhitespaceAndComments() → () is
+		la :← reader.lookaheadUnicode()
+		if la = TextReader.END_OF_TEXT then
+			return
+		else
+			if isWhite(la) then
+				advance()
+				skipWhitespaceAndComments()
+			elseif la = HASH then
+				skipToEndOfLine()
+				skipWhitespaceAndComments()
+			end
+		end
+	end
+
+	⟦public⟧
+	method skipToEndOfLine() → () is
+		la :← reader.lookaheadUnicode()
+		if la = TextReader.END_OF_TEXT then
+			return
+		else
+			if isLineBreak(la) then
+				return
+			end
+			advance()
+			skipToEndOfLine()
+		end
+	end
+
+	⟦public⟧
+	method consumeBlankLine() → () is
+		la :← reader.lookaheadUnicode()
+		if la = TextReader.END_OF_TEXT then
+			return
+		else
+			if isLineBreak(la) then
+				advance()
+			else
+				advance()
+				consumeBlankLine()
+			end
+		end
+	end
+
+	⟦public⟧
+	method skipNSpaces(n : ℕ₃₂) → () is
+		if n = 0 then
+			return
+		end
+		la :← reader.lookaheadUnicode()
+		if la = TextReader.END_OF_TEXT then
+			return
+		else
+			if la = SPACE then
+				advance()
+				skipNSpaces(n − 1)
+			end
+		end
+	end
+
+	⟦public⟧
+	method readLineText() → String is
+		start :← reader.currentOffset()
+		readUntilNewline()
+		end_off :← reader.currentOffset()
+		advance()
+		return source.text(start, end_off)
+	end
+
+	⟦public⟧
+	method readUntilNewline() → () is
+		la :← reader.lookaheadUnicode()
+		if la = TextReader.END_OF_TEXT then
+			return
+		else
+			if isLineBreak(la) then
+				return
+			end
+			advance()
+			readUntilNewline()
+		end
+	end
+
+	⟦public⟧
+	method peekLineIndent() → ℕ₃₂ is
+		return peekLineIndentFrom(1)
+	end
+
+	⟦public⟧
+	method peekLineIndentFrom(i : ℕ₃₂) → ℕ₃₂ is
+		la :← reader.lookaheadUnicode(i)
+		if la = TextReader.END_OF_TEXT then
+			return i − 1
+		else
+			if la = SPACE then
+				return peekLineIndentFrom(i + 1)
+			end
+			return i − 1
+		end
+	end
+
+	⟦public⟧
+	method isLineBlankAtPeek(indent : ℕ₃₂) → 𝔹 is
+		la :← reader.lookaheadUnicode(indent + 1)
+		if la = TextReader.END_OF_TEXT then
+			return TRUE
+		else
+			return isLineBreak(la)
+		end
+	end
+
+	function isSpaceOrTab(ch : 𝔸) → 𝔹 is
+		return ch = SPACE ⩒ ch = TAB
+	end
+
+	function isLineBreak(ch : 𝔸) → 𝔹 is
+		return ch = NEWLINE ⩒ ch = CR
+	end
+
+	function isWhite(ch : 𝔸) → 𝔹 is
+		return ch = SPACE ⩒ ch = TAB ⩒ ch = NEWLINE ⩒ ch = CR
+	end
+
+end object
