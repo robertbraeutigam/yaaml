@@ -21,7 +21,11 @@
       "Bash(curl -sSk http://aalgolab.com/de/punkt/__TRACKED_VAR__/index.html)",
       "Bash(python3 *)",
       "Bash(/home/robert/.claude/skills/aalgola/bin/aairs-sig *)",
-      "Bash(awk 'NR==122 {for\\(i=1;i<=length\\($0\\);i++\\) printf \"%d \", ord\\(substr\\($0,i,1\\)\\);  print \"\"}' /home/robert/personal/aalgola/yaaml/sources/github__com/robertbraeutigam/yaaml/YamlParseState.aalgola)"
+      "Bash(awk 'NR==122 {for\\(i=1;i<=length\\($0\\);i++\\) printf \"%d \", ord\\(substr\\($0,i,1\\)\\);  print \"\"}' /home/robert/personal/aalgola/yaaml/sources/github__com/robertbraeutigam/yaaml/YamlParseState.aalgola)",
+      "Read(//home/robert/**)",
+      "Bash(find / -name \"*.aalgola\")",
+      "Bash(find / -path /proc -prune -o -name \"TextReader.aalgola\" -print)",
+      "Bash(find / -path /proc -prune -o -name \"*.jar\" -path \"*aalgola*\" -print)"
     ]
   }
 }

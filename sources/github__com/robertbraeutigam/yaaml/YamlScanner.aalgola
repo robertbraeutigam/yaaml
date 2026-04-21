@@ -1,9 +1,9 @@
 namespace //github.com/robertbraeutigam/yaaml/
 
-import //aalgola.org/core/character/Unicode
 import //aalgola.org/core/util/parser/source/standard/StringSource
 import //aalgola.org/core/util/parser/source/SourceReader
 import //aalgola.org/core/io/text/TextReader
+import //github.com/robertbraeutigam/yaaml/YamlChars
 
 ⟦package⟧
 object YamlScanner ⁌
@@ -16,12 +16,6 @@ object YamlScanner ⁌
 	and resets the column to 0; any other character bumps the column
 	by one.
 ⁍ is
-
-	const SPACE   : 𝔸 = Unicode(32).toUnicode()
-	const TAB     : 𝔸 = Unicode(9).toUnicode()
-	const NEWLINE : 𝔸 = Unicode(10).toUnicode()
-	const CR      : 𝔸 = Unicode(13).toUnicode()
-	const HASH    : 𝔸 = Unicode(35).toUnicode()
 
 	⟦public⟧
 	⟦final⟧
@@ -63,12 +57,12 @@ object YamlScanner ⁌
 			return
 		else
 			reader.readUnicode()
-			if la = NEWLINE then
+			if la = YamlChars.NEWLINE then
 				col ← 0
-			elseif la = CR then
+			elseif la = YamlChars.CR then
 				next :← reader.lookaheadUnicode()
 				if next ≠ TextReader.END_OF_TEXT then
-					if next = NEWLINE then
+					if next = YamlChars.NEWLINE then
 						reader.readUnicode()
 					end
 				end
@@ -85,7 +79,7 @@ object YamlScanner ⁌
 		if la = TextReader.END_OF_TEXT then
 			return
 		else
-			if isSpaceOrTab(la) then
+			if YamlChars.isSpaceOrTab(la) then
 				advance()
 				skipInlineSpaces()
 			end
@@ -98,13 +92,13 @@ object YamlScanner ⁌
 		if la = TextReader.END_OF_TEXT then
 			return
 		else
-			if isSpaceOrTab(la) then
+			if YamlChars.isSpaceOrTab(la) then
 				advance()
 				finishLine()
-			elseif la = HASH then
+			elseif la = YamlChars.HASH then
 				skipToEndOfLine()
 				finishLine()
-			elseif isLineBreak(la) then
+			elseif YamlChars.isLineBreak(la) then
 				advance()
 			end
 		end
@@ -116,13 +110,13 @@ object YamlScanner ⁌
 		if la = TextReader.END_OF_TEXT then
 			return
 		else
-			if isSpaceOrTab(la) then
+			if YamlChars.isSpaceOrTab(la) then
 				advance()
 				skipBlankLines()
-			elseif isLineBreak(la) then
+			elseif YamlChars.isLineBreak(la) then
 				advance()
 				skipBlankLines()
-			elseif la = HASH then
+			elseif la = YamlChars.HASH then
 				skipToEndOfLine()
 				skipBlankLines()
 			end
@@ -135,10 +129,10 @@ object YamlScanner ⁌
 		if la = TextReader.END_OF_TEXT then
 			return
 		else
-			if isWhite(la) then
+			if YamlChars.isWhite(la) then
 				advance()
 				skipWhitespaceAndComments()
-			elseif la = HASH then
+			elseif la = YamlChars.HASH then
 				skipToEndOfLine()
 				skipWhitespaceAndComments()
 			end
@@ -151,7 +145,7 @@ object YamlScanner ⁌
 		if la = TextReader.END_OF_TEXT then
 			return
 		else
-			if isLineBreak(la) then
+			if YamlChars.isLineBreak(la) then
 				return
 			end
 			advance()
@@ -165,7 +159,7 @@ object YamlScanner ⁌
 		if la = TextReader.END_OF_TEXT then
 			return
 		else
-			if isLineBreak(la) then
+			if YamlChars.isLineBreak(la) then
 				advance()
 			else
 				advance()
@@ -183,7 +177,7 @@ object YamlScanner ⁌
 		if la = TextReader.END_OF_TEXT then
 			return
 		else
-			if la = SPACE then
+			if la = YamlChars.SPACE then
 				advance()
 				skipNSpaces(n − 1)
 			end
@@ -205,7 +199,7 @@ object YamlScanner ⁌
 		if la = TextReader.END_OF_TEXT then
 			return
 		else
-			if isLineBreak(la) then
+			if YamlChars.isLineBreak(la) then
 				return
 			end
 			advance()
@@ -224,7 +218,7 @@ object YamlScanner ⁌
 		if la = TextReader.END_OF_TEXT then
 			return i − 1
 		else
-			if la = SPACE then
+			if la = YamlChars.SPACE then
 				return peekLineIndentFrom(i + 1)
 			end
 			return i − 1
@@ -237,20 +231,51 @@ object YamlScanner ⁌
 		if la = TextReader.END_OF_TEXT then
 			return TRUE
 		else
-			return isLineBreak(la)
+			return YamlChars.isLineBreak(la)
 		end
 	end
 
-	function isSpaceOrTab(ch : 𝔸) → 𝔹 is
-		return ch = SPACE ⩒ ch = TAB
+	⟦public⟧
+	method isColonThenBreak() → 𝔹 ⁌
+		TRUE iff the cursor is at a <c>:</c> followed by whitespace,
+		end-of-line, or end-of-text — i.e. the YAML block-mapping
+		marker that ends a key.
+	⁍ is
+		la :← reader.lookaheadUnicode()
+		if la = TextReader.END_OF_TEXT then
+			return FALSE
+		else
+			if la ≠ YamlChars.COLON then
+				return FALSE
+			end
+			next :← reader.lookaheadUnicode(2)
+			if next = TextReader.END_OF_TEXT then
+				return TRUE
+			else
+				return YamlChars.isWhite(next)
+			end
+		end
 	end
 
-	function isLineBreak(ch : 𝔸) → 𝔹 is
-		return ch = NEWLINE ⩒ ch = CR
-	end
-
-	function isWhite(ch : 𝔸) → 𝔹 is
-		return ch = SPACE ⩒ ch = TAB ⩒ ch = NEWLINE ⩒ ch = CR
+	⟦public⟧
+	method isBlockSequenceStart() → 𝔹 ⁌
+		TRUE iff the cursor is at a <c>-</c> followed by whitespace or
+		end-of-text — i.e. the YAML block-sequence item marker.
+	⁍ is
+		la :← reader.lookaheadUnicode()
+		if la = TextReader.END_OF_TEXT then
+			return FALSE
+		else
+			if la ≠ YamlChars.DASH then
+				return FALSE
+			end
+			next :← reader.lookaheadUnicode(2)
+			if next = TextReader.END_OF_TEXT then
+				return TRUE
+			else
+				return YamlChars.isWhite(next)
+			end
+		end
 	end
 
 end object

@@ -1,0 +1,169 @@
+namespace //github.com/robertbraeutigam/yaaml/
+
+import //aalgola.org/core/character/Unicode
+import //aalgola.org/core/io/text/TextReader
+import //github.com/robertbraeutigam/yaaml/YamlChars
+
+⟦package⟧
+object YamlQuotedScalarReader ⁌
+	Reads quoted YAML scalar bodies through a <c>YamlScanner</c>. For
+	double-quoted scalars the usual C-style escapes (<c>\n \t \r \\
+	\" \/ \0 \a \b \f \v \e \uXXXX</c>) are decoded; unknown escapes
+	pass through literally. For single-quoted scalars <c>''</c> decodes
+	to a single <c>'</c>. The reader expects the cursor positioned
+	at the opening quote and leaves it just past the closing quote.
+⁍ is
+
+	⟦private⟧
+	⟦final⟧
+	scanner : YamlScanner
+
+	⟦public⟧
+	init (scanner : YamlScanner) is
+		self.scanner ← scanner
+	end
+
+	⟦public⟧
+	method readDoubleQuoted() → String is
+		scanner.advance()
+		return readDoubleQuotedBody(“”)
+	end
+
+	⟦public⟧
+	method readSingleQuoted() → String is
+		scanner.advance()
+		return readSingleQuotedBody(“”)
+	end
+
+	method readDoubleQuotedBody(acc : String) → String is
+		la :← scanner.reader.lookaheadUnicode()
+		if la = TextReader.END_OF_TEXT then
+			return acc
+		else
+			if la = YamlChars.DQUOTE then
+				scanner.advance()
+				return acc
+			end
+			if la = YamlChars.BSLASH then
+				scanner.advance()
+				decoded :← decodeDoubleEscape()
+				return readDoubleQuotedBody(acc ⋅ decoded)
+			end
+			scanner.advance()
+			return readDoubleQuotedBody(acc ⋅ la)
+		end
+	end
+
+	method decodeDoubleEscape() → String is
+		la :← scanner.reader.lookaheadUnicode()
+		if la = TextReader.END_OF_TEXT then
+			return “\”
+		else
+			scanner.advance()
+			code :← letterEscapeCode(la)
+			if code ≥ 0 then
+				return “” ⋅ Unicode(code).toUnicode()
+			end
+			if la = YamlChars.BSLASH then
+				return “\”
+			end
+			if la = YamlChars.DQUOTE then
+				return “"”
+			end
+			if la = “/”.firstUnicode() then
+				return “/”
+			end
+			if la = “u”.firstUnicode() then
+				return “” ⋅ Unicode(readHex4()).toUnicode()
+			end
+			return “\” ⋅ la
+		end
+	end
+
+	function letterEscapeCode(la : 𝔸) → ℤ₃₂ ⁌
+		Returns the Unicode codepoint for a single-letter C-style escape
+		(<c>n</c>, <c>t</c>, <c>r</c>, <c>0</c>, <c>a</c>, <c>b</c>,
+		<c>f</c>, <c>v</c>, <c>e</c>), or <c>−1</c> if <c>la</c> is not one.
+	⁍ is
+		if la = “n”.firstUnicode() then
+			return 10
+		end
+		if la = “t”.firstUnicode() then
+			return 9
+		end
+		if la = “r”.firstUnicode() then
+			return 13
+		end
+		if la = “0”.firstUnicode() then
+			return 0
+		end
+		if la = “a”.firstUnicode() then
+			return 7
+		end
+		if la = “b”.firstUnicode() then
+			return 8
+		end
+		if la = “f”.firstUnicode() then
+			return 12
+		end
+		if la = “v”.firstUnicode() then
+			return 11
+		end
+		if la = “e”.firstUnicode() then
+			return 27
+		end
+		return −1
+	end
+
+	method readHex4() → ℤ₃₂ is
+		h1 :← readHexDigit()
+		h2 :← readHexDigit()
+		h3 :← readHexDigit()
+		h4 :← readHexDigit()
+		return (((h1 ⋅ 16) + h2) ⋅ 16 + h3) ⋅ 16 + h4
+	end
+
+	method readHexDigit() → ℤ₃₂ is
+		la :← scanner.reader.lookaheadUnicode()
+		if la = TextReader.END_OF_TEXT then
+			return 0
+		else
+			scanner.advance()
+			n :← Unicode(la).asInt()
+			if 48 ≤ n ⩑ n ≤ 57 then
+				return n − 48
+			end
+			if 97 ≤ n ⩑ n ≤ 102 then
+				return n − 87
+			end
+			if 65 ≤ n ⩑ n ≤ 70 then
+				return n − 55
+			end
+			return 0
+		end
+	end
+
+	method readSingleQuotedBody(acc : String) → String is
+		la :← scanner.reader.lookaheadUnicode()
+		if la = TextReader.END_OF_TEXT then
+			return acc
+		else
+			if la ≠ YamlChars.SQUOTE then
+				scanner.advance()
+				return readSingleQuotedBody(acc ⋅ la)
+			end
+			scanner.advance()
+			next :← scanner.reader.lookaheadUnicode()
+			if next = TextReader.END_OF_TEXT then
+				return acc
+			else
+				if next ≠ YamlChars.SQUOTE then
+					return acc
+				end
+				scanner.advance()
+				return readSingleQuotedBody(acc ⋅ “'”)
+			end
+		end
+	end
+
+end object

@@ -1,0 +1,88 @@
+namespace //github.com/robertbraeutigam/yaaml/
+
+import //aalgola.org/core/collection/cdt/array/ArrayBuilder
+import //aalgola.org/core/io/text/TextReader
+import //github.com/robertbraeutigam/yaaml/YamlChars
+
+⟦package⟧
+object YamlBlockScalarReader ⁌
+	Reads <c>|</c> literal and <c>&gt;</c> folded block scalars with
+	optional <c>-</c>/<c>+</c> chomping, through a <c>YamlScanner</c>.
+	Auto-detects base indentation from the first non-empty content
+	line; explicit indent indicators (e.g. <c>|2</c>) are not
+	supported. Expects the cursor on the style indicator and leaves
+	it past the trailing blank lines.
+⁍ is
+
+	⟦private⟧
+	⟦final⟧
+	scanner : YamlScanner
+
+	⟦public⟧
+	init (scanner : YamlScanner) is
+		self.scanner ← scanner
+	end
+
+	⟦public⟧
+	method read(parent_indent : ℕ₃₂, literal : 𝔹) → String is
+		scanner.advance()
+		chomp :← readChomping()
+		scanner.finishLine()
+		lines_builder :← ArrayBuilder⟦String⟧()
+		collectLines(parent_indent, 0, FALSE, lines_builder)
+		lines :← lines_builder.done()
+		body : String ← “”
+		if literal then
+			body ← YamlBlockScalarAssembly.assembleLiteral(lines)
+		else
+			body ← YamlBlockScalarAssembly.assembleFolded(lines)
+		end
+		scanner.skipBlankLines()
+		return YamlBlockScalarAssembly.applyChomping(body, chomp)
+	end
+
+	method readChomping() → ℕ₃₂ ⁌
+		0 = clip (default, one trailing newline), 1 = strip, 2 = keep.
+	⁍ is
+		la :← scanner.reader.lookaheadUnicode()
+		if la = TextReader.END_OF_TEXT then
+			return 0
+		else
+			if la = YamlChars.DASH ⩒ la = YamlChars.PLUS then
+				scanner.advance()
+				if la = YamlChars.DASH then
+					return 1
+				end
+				return 2
+			end
+			return 0
+		end
+	end
+
+	method collectLines(parent_indent : ℕ₃₂, base_indent : ℕ₃₂, have_base : 𝔹, builder : ArrayBuilder⟦String⟧) → () is
+		if scanner.reader.lookaheadUnicode() = TextReader.END_OF_TEXT then
+			return
+		end
+		indent :← scanner.peekLineIndent()
+		if scanner.isLineBlankAtPeek(indent) then
+			scanner.consumeBlankLine()
+			builder.append(“”)
+			collectLines(parent_indent, base_indent, have_base, builder)
+			return
+		end
+		if have_base ⩑ indent < base_indent then
+			return
+		end
+		if ¬ have_base ⩑ indent ≤ parent_indent then
+			return
+		end
+		effective_indent : ℕ₃₂ ← indent
+		if have_base then
+			effective_indent ← base_indent
+		end
+		scanner.skipNSpaces(effective_indent)
+		builder.append(scanner.readLineText())
+		collectLines(parent_indent, effective_indent, TRUE, builder)
+	end
+
+end object

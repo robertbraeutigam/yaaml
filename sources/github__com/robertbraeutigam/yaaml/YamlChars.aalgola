@@ -1,0 +1,68 @@
+namespace //github.com/robertbraeutigam/yaaml/
+
+import //aalgola.org/core/character/Unicode
+
+⟦package⟧
+library YamlChars ⁌
+	Shared character constants and whitespace predicates used by both
+	the scanner and the grammar productions.
+⁍ is
+
+	⟦package⟧
+	const SPACE    : 𝔸 = Unicode(32).toUnicode()
+	⟦package⟧
+	const TAB      : 𝔸 = Unicode(9).toUnicode()
+	⟦package⟧
+	const NEWLINE  : 𝔸 = Unicode(10).toUnicode()
+	⟦package⟧
+	const CR       : 𝔸 = Unicode(13).toUnicode()
+	⟦package⟧
+	const HASH     : 𝔸 = Unicode(35).toUnicode()
+	⟦package⟧
+	const LBRACKET : 𝔸 = Unicode(91).toUnicode()
+	⟦package⟧
+	const RBRACKET : 𝔸 = Unicode(93).toUnicode()
+	⟦package⟧
+	const LBRACE   : 𝔸 = Unicode(123).toUnicode()
+	⟦package⟧
+	const RBRACE   : 𝔸 = Unicode(125).toUnicode()
+	⟦package⟧
+	const COMMA    : 𝔸 = Unicode(44).toUnicode()
+	⟦package⟧
+	const COLON    : 𝔸 = Unicode(58).toUnicode()
+	⟦package⟧
+	const DQUOTE   : 𝔸 = Unicode(34).toUnicode()
+	⟦package⟧
+	const SQUOTE   : 𝔸 = Unicode(39).toUnicode()
+	⟦package⟧
+	const BSLASH   : 𝔸 = Unicode(92).toUnicode()
+	⟦package⟧
+	const DASH     : 𝔸 = Unicode(45).toUnicode()
+	⟦package⟧
+	const PLUS     : 𝔸 = Unicode(43).toUnicode()
+	⟦package⟧
+	const PIPE     : 𝔸 = Unicode(124).toUnicode()
+	⟦package⟧
+	const GREATER  : 𝔸 = Unicode(62).toUnicode()
+
+	⟦package⟧
+	function isSpaceOrTab(ch : 𝔸) → 𝔹 is
+		return ch = SPACE ⩒ ch = TAB
+	end
+
+	⟦package⟧
+	function isLineBreak(ch : 𝔸) → 𝔹 is
+		return ch = NEWLINE ⩒ ch = CR
+	end
+
+	⟦package⟧
+	function isWhite(ch : 𝔸) → 𝔹 is
+		return ch = SPACE ⩒ ch = TAB ⩒ ch = NEWLINE ⩒ ch = CR
+	end
+
+	⟦package⟧
+	function isFlowEnd(ch : 𝔸) → 𝔹 is
+		return ch = COMMA ⩒ ch = RBRACKET ⩒ ch = RBRACE
+	end
+
+end library

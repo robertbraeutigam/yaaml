@@ -1,8 +1,8 @@
 namespace //github.com/robertbraeutigam/yaaml/
 
 import //aalgola.org/core/collection/cdt/array/ArrayBuilder
-import //aalgola.org/core/character/Unicode
 import //aalgola.org/core/io/text/TextReader
+import //github.com/robertbraeutigam/yaaml/YamlChars
 
 ⟦package⟧
 object YamlParseState ⁌
@@ -13,25 +13,6 @@ object YamlParseState ⁌
 	whitespace handling is delegated to the scanner.
 ⁍ is
 
-	const SPACE    : 𝔸 = Unicode(32).toUnicode()
-	const TAB      : 𝔸 = Unicode(9).toUnicode()
-	const NEWLINE  : 𝔸 = Unicode(10).toUnicode()
-	const CR       : 𝔸 = Unicode(13).toUnicode()
-	const HASH     : 𝔸 = Unicode(35).toUnicode()
-	const LBRACKET : 𝔸 = Unicode(91).toUnicode()
-	const RBRACKET : 𝔸 = Unicode(93).toUnicode()
-	const LBRACE   : 𝔸 = Unicode(123).toUnicode()
-	const RBRACE   : 𝔸 = Unicode(125).toUnicode()
-	const COMMA    : 𝔸 = Unicode(44).toUnicode()
-	const COLON    : 𝔸 = Unicode(58).toUnicode()
-	const DQUOTE   : 𝔸 = Unicode(34).toUnicode()
-	const SQUOTE   : 𝔸 = Unicode(39).toUnicode()
-	const BSLASH   : 𝔸 = Unicode(92).toUnicode()
-	const DASH     : 𝔸 = Unicode(45).toUnicode()
-	const PLUS     : 𝔸 = Unicode(43).toUnicode()
-	const PIPE     : 𝔸 = Unicode(124).toUnicode()
-	const GREATER  : 𝔸 = Unicode(62).toUnicode()
-
 	⟦private⟧
 	⟦final⟧
 	scanner : YamlScanner
@@ -39,22 +20,6 @@ object YamlParseState ⁌
 	⟦public⟧
 	init (input : String) is
 		self.scanner ← YamlScanner(input)
-	end
-
-	function isSpaceOrTab(ch : 𝔸) → 𝔹 is
-		return ch = SPACE ⩒ ch = TAB
-	end
-
-	function isLineBreak(ch : 𝔸) → 𝔹 is
-		return ch = NEWLINE ⩒ ch = CR
-	end
-
-	function isWhite(ch : 𝔸) → 𝔹 is
-		return ch = SPACE ⩒ ch = TAB ⩒ ch = NEWLINE ⩒ ch = CR
-	end
-
-	function isFlowEnd(ch : 𝔸) → 𝔹 is
-		return ch = COMMA ⩒ ch = RBRACKET ⩒ ch = RBRACE
 	end
 
 	⟦public⟧
@@ -66,29 +31,34 @@ object YamlParseState ⁌
 	end
 
 	method parseNode() → YamlValue is
-		if isBlockSequenceStart() then
+		if scanner.isBlockSequenceStart() then
 			return parseBlockSequence(scanner.currentColumn())
 		end
 		la :← scanner.reader.lookaheadUnicode()
 		if la = TextReader.END_OF_TEXT then
 			return YamlNull()
 		end
-		if la = LBRACKET ⩒ la = LBRACE then
+		if la = YamlChars.LBRACKET ⩒ la = YamlChars.LBRACE then
 			v :← parseValue(FALSE)
 			scanner.finishLine()
 			scanner.skipBlankLines()
 			return v
 		end
-		if la = DQUOTE ⩒ la = SQUOTE then
-			start_col :← scanner.currentColumn()
-			return maybeBlockMapping(start_col, parseValue(FALSE))
+		indent :← scanner.currentColumn()
+		if la = YamlChars.DQUOTE ⩒ la = YamlChars.SQUOTE then
+			return maybeBlockMapping(indent, parseValue(FALSE))
 		end
-		return parsePlainOrKey(scanner.currentColumn())
+		return maybeBlockMapping(indent, readPlainCandidate(FALSE))
 	end
 
-	method maybeBlockMapping(indent : ℕ₃₂, candidate : YamlValue) → YamlValue is
+	method maybeBlockMapping(indent : ℕ₃₂, candidate : YamlValue) → YamlValue ⁌
+		If <c>candidate</c> is followed by a block-mapping <c>:</c> (after
+		optional inline spaces), consume the <c>:</c> and parse the rest of
+		the mapping with <c>candidate</c> as the first key; otherwise treat
+		<c>candidate</c> as a standalone value and finish the line.
+	⁍ is
 		scanner.skipInlineSpaces()
-		if isColonThenBreak() then
+		if scanner.isColonThenBreak() then
 			scanner.advance()
 			return parseBlockMapping(indent, candidate)
 		end
@@ -97,63 +67,55 @@ object YamlParseState ⁌
 		return candidate
 	end
 
-	method isColonThenBreak() → 𝔹 is
-		la :← scanner.reader.lookaheadUnicode()
-		if la = TextReader.END_OF_TEXT then
-			return FALSE
-		else
-			if la ≠ COLON then
-				return FALSE
-			end
-			next :← scanner.reader.lookaheadUnicode(2)
-			if next = TextReader.END_OF_TEXT then
-				return TRUE
-			else
-				return isWhite(next)
-			end
-		end
-	end
-
-	method parsePlainOrKey(indent : ℕ₃₂) → YamlValue is
+	method readPlainCandidate(in_flow : 𝔹) → YamlValue ⁌
+		Reads a plain scalar from the cursor and returns its classified
+		value. The cursor is left at the terminator that stopped the read
+		(line break, comment start, block-mapping <c>:</c>, or a flow
+		delimiter in flow context).
+	⁍ is
 		start :← scanner.reader.currentOffset()
-		hit_colon :← readBlockPlainChars(FALSE)
+		readPlainChars(in_flow, TRUE)
 		end_off :← scanner.reader.currentOffset()
-		classified :← YamlScalarClassifier.classifyPlainScalar(scanner.source.text(start, end_off).trimSpaces())
-		if hit_colon then
-			scanner.advance()
-			return parseBlockMapping(indent, classified)
-		end
-		scanner.finishLine()
-		scanner.skipBlankLines()
-		return classified
+		return YamlScalarClassifier.classifyPlainScalar(scanner.source.text(start, end_off).trimSpaces())
 	end
 
-	method readBlockPlainChars(prev_was_space : 𝔹) → 𝔹 is
+	method readPlainChars(in_flow : 𝔹, prev_was_space : 𝔹) → () ⁌
+		Advances the cursor over plain-scalar characters up to (but not
+		past) the next terminator. In block mode stops at a line break,
+		<c>#</c>-comment start preceded by a space, or a block-mapping
+		<c>:</c> (followed by whitespace or end-of-text); in flow mode
+		additionally stops at <c>,</c>/<c>]</c>/<c>}</c> and at any
+		<c>:</c>. Callers use <c>isColonThenBreak</c> afterwards to detect
+		whether the stop was at a block-mapping colon.
+	⁍ is
 		la :← scanner.reader.lookaheadUnicode()
 		if la = TextReader.END_OF_TEXT then
-			return FALSE
+			return
 		else
-			if isLineBreak(la) ⩒ (la = HASH ⩑ prev_was_space) then
-				return FALSE
+			if YamlChars.isLineBreak(la) ⩒ (la = YamlChars.HASH ⩑ prev_was_space) then
+				return
 			end
-			if la = COLON then
+			if in_flow ⩑ (YamlChars.isFlowEnd(la) ⩒ la = YamlChars.COLON) then
+				return
+			end
+			if ¬ in_flow ⩑ la = YamlChars.COLON then
 				next :← scanner.reader.lookaheadUnicode(2)
 				if next = TextReader.END_OF_TEXT then
-					return TRUE
+					return
 				else
-					if isWhite(next) then
-						return TRUE
+					if YamlChars.isWhite(next) then
+						return
 					end
 				end
 			end
 			scanner.advance()
-			return readBlockPlainChars(isSpaceOrTab(la))
+			readPlainChars(in_flow, YamlChars.isSpaceOrTab(la))
 		end
 	end
 
 	method parseBlockMapping(indent : ℕ₃₂, first_key : YamlValue) → YamlMapping is
 		builder :← ArrayBuilder⟦YamlMappingEntry⟧()
-		builder.append(YamlMappingEntry(first_key, parseBlockMappingValue(indent)))
+		builder.append(YamlMappingEntry(first_key, parseInlineBlockValue(indent, FALSE)))
 		collectBlockMappingEntries(indent, builder)
 		return YamlMapping(builder.done())
 	end
@@ -166,32 +128,23 @@ object YamlParseState ⁌
 		if la = TextReader.END_OF_TEXT then
 			return
 		else
-			if la = DASH then
+			if la = YamlChars.DASH then
 				return
 			end
 			key : YamlValue ← YamlNull()
-			if la = DQUOTE ⩒ la = SQUOTE then
+			if la = YamlChars.DQUOTE ⩒ la = YamlChars.SQUOTE then
 				key ← parseValue(FALSE)
-				scanner.skipInlineSpaces()
-				if ¬ isColonThenBreak() then
-					return
-				end
 			else
-				start :← scanner.reader.currentOffset()
-				if ¬ readBlockPlainChars(FALSE) then
-					return
-				end
-				end_off :← scanner.reader.currentOffset()
-				key ← YamlScalarClassifier.classifyPlainScalar(scanner.source.text(start, end_off).trimSpaces())
+				key ← readPlainCandidate(FALSE)
+			end
+			scanner.skipInlineSpaces()
+			if ¬ scanner.isColonThenBreak() then
+				return
 			end
 			scanner.advance()
-			builder.append(YamlMappingEntry(key, parseBlockMappingValue(indent)))
+			builder.append(YamlMappingEntry(key, parseInlineBlockValue(indent, FALSE)))
 			collectBlockMappingEntries(indent, builder)
 		end
-	end
-
-	method parseBlockMappingValue(indent : ℕ₃₂) → YamlValue is
-		return parseInlineBlockValue(indent, FALSE)
 	end
 
 	method parseInlineBlockValue(indent : ℕ₃₂, allow_node : 𝔹) → YamlValue ⁌
@@ -207,18 +160,18 @@ object YamlParseState ⁌
 		if la = TextReader.END_OF_TEXT then
 			return YamlNull()
 		else
-			if isSpaceOrTab(la) then
+			if YamlChars.isSpaceOrTab(la) then
 				scanner.advance()
 				scanner.skipInlineSpaces()
 				la2 :← scanner.reader.lookaheadUnicode()
 				if la2 = TextReader.END_OF_TEXT then
 					return YamlNull()
 				else
-					if isLineBreak(la2) ⩒ la2 = HASH then
+					if YamlChars.isLineBreak(la2) ⩒ la2 = YamlChars.HASH then
 						return continueOrNull(indent)
 					end
-					if la2 = PIPE ⩒ la2 = GREATER then
-						return parseBlockScalar(indent, la2 = PIPE)
+					if la2 = YamlChars.PIPE ⩒ la2 = YamlChars.GREATER then
+						return YamlScalar(YamlBlockScalarReader(scanner).read(indent, la2 = YamlChars.PIPE))
 					end
 					if allow_node then
 						return parseNode()
@@ -229,7 +182,7 @@ object YamlParseState ⁌
 					return v
 				end
 			end
-			if isLineBreak(la) then
+			if YamlChars.isLineBreak(la) then
 				return continueOrNull(indent)
 			end
 			return YamlNull()
@@ -241,19 +194,19 @@ object YamlParseState ⁌
 		if la = TextReader.END_OF_TEXT then
 			return YamlNull()
 		end
-		if la = LBRACKET then
+		if la = YamlChars.LBRACKET then
 			return parseFlowSequence()
 		end
-		if la = LBRACE then
+		if la = YamlChars.LBRACE then
 			return parseFlowMapping()
 		end
-		if la = DQUOTE then
-			return parseDoubleQuoted()
+		if la = YamlChars.DQUOTE then
+			return YamlScalar(YamlQuotedScalarReader(scanner).readDoubleQuoted())
 		end
-		if la = SQUOTE then
-			return parseSingleQuoted()
+		if la = YamlChars.SQUOTE then
+			return YamlScalar(YamlQuotedScalarReader(scanner).readSingleQuoted())
 		end
-		return parsePlainScalar(in_flow)
+		return readPlainCandidate(in_flow)
 	end
 
 	method parseFlowSequence() → YamlSequence is
@@ -269,7 +222,7 @@ object YamlParseState ⁌
 		if la = TextReader.END_OF_TEXT then
 			return
 		else
-			if la = RBRACKET then
+			if la = YamlChars.RBRACKET then
 				scanner.advance()
 				return
 			end
@@ -279,10 +232,10 @@ object YamlParseState ⁌
 			if sep = TextReader.END_OF_TEXT then
 				return
 			else
-				if sep = COMMA then
+				if sep = YamlChars.COMMA then
 					scanner.advance()
 					collectFlowSequenceItems(builder)
-				elseif sep = RBRACKET then
+				elseif sep = YamlChars.RBRACKET then
 					scanner.advance()
 				end
 			end
@@ -302,7 +255,7 @@ object YamlParseState ⁌
 		if la = TextReader.END_OF_TEXT then
 			return
 		else
-			if la = RBRACE then
+			if la = YamlChars.RBRACE then
 				scanner.advance()
 				return
 			end
@@ -311,7 +264,7 @@ object YamlParseState ⁌
 			colon :← scanner.reader.lookaheadUnicode()
 			value : YamlValue ← YamlNull()
 			if colon ≠ TextReader.END_OF_TEXT then
-				if colon = COLON then
+				if colon = YamlChars.COLON then
 					scanner.advance()
 					scanner.skipWhitespaceAndComments()
 					value ← parseValue(TRUE)
@@ -323,29 +276,12 @@ object YamlParseState ⁌
 			if sep = TextReader.END_OF_TEXT then
 				return
 			else
-				if sep = COMMA then
+				if sep = YamlChars.COMMA then
 					scanner.advance()
 					collectFlowMappingEntries(builder)
-				elseif sep = RBRACE then
+				elseif sep = YamlChars.RBRACE then
 					scanner.advance()
 				end
-			end
-		end
-	end
-
-	method isBlockSequenceStart() → 𝔹 is
-		la :← scanner.reader.lookaheadUnicode()
-		if la = TextReader.END_OF_TEXT then
-			return FALSE
-		else
-			if la ≠ DASH then
-				return FALSE
-			end
-			next :← scanner.reader.lookaheadUnicode(2)
-			if next = TextReader.END_OF_TEXT then
-				return TRUE
-			else
-				return isWhite(next)
 			end
 		end
 	end
@@ -357,16 +293,12 @@ object YamlParseState ⁌
 	end
 
 	method collectBlockSequenceItems(indent : ℕ₃₂, builder : ArrayBuilder⟦YamlValue⟧) → () is
-		if ¬ isBlockSequenceStart() ⩒ scanner.currentColumn() ≠ indent then
+		if ¬ scanner.isBlockSequenceStart() ⩒ scanner.currentColumn() ≠ indent then
 			return
 		end
 		scanner.advance()
-		builder.append(parseBlockItemValue(indent))
+		builder.append(parseInlineBlockValue(indent, TRUE))
 		collectBlockSequenceItems(indent, builder)
-	end
-
-	method parseBlockItemValue(parent_indent : ℕ₃₂) → YamlValue is
-		return parseInlineBlockValue(parent_indent, TRUE)
 	end
 
 	method continueOrNull(parent_indent : ℕ₃₂) → YamlValue ⁌
@@ -380,235 +312,6 @@ object YamlParseState ⁌
 			return parseNode()
 		end
 		return YamlNull()
-	end
-
-	method parseBlockScalar(parent_indent : ℕ₃₂, literal : 𝔹) → YamlValue ⁌
-		Parses a <c>|</c> literal or <c>&gt;</c> folded block scalar, with
-		optional <c>-</c>/<c>+</c> chomping indicator. Auto-detects base
-		indentation from the first non-empty content line. Explicit indent
-		indicators (e.g. <c>|2</c>) are not supported.
-	⁍ is
-		scanner.advance()
-		chomp :← readBlockScalarChomping()
-		scanner.finishLine()
-		lines_builder :← ArrayBuilder⟦String⟧()
-		collectBlockScalarLines(parent_indent, 0, FALSE, lines_builder)
-		lines :← lines_builder.done()
-		body : String ← “”
-		if literal then
-			body ← YamlBlockScalarAssembly.assembleLiteral(lines)
-		else
-			body ← YamlBlockScalarAssembly.assembleFolded(lines)
-		end
-		chomped :← YamlBlockScalarAssembly.applyChomping(body, chomp)
-		scanner.skipBlankLines()
-		return YamlScalar(chomped)
-	end
-
-	method readBlockScalarChomping() → ℕ₃₂ ⁌
-		0 = clip (default, one trailing newline), 1 = strip, 2 = keep.
-	⁍ is
-		la :← scanner.reader.lookaheadUnicode()
-		if la = TextReader.END_OF_TEXT then
-			return 0
-		else
-			if la = DASH ⩒ la = PLUS then
-				scanner.advance()
-				if la = DASH then
-					return 1
-				end
-				return 2
-			end
-			return 0
-		end
-	end
-
-	method collectBlockScalarLines(parent_indent : ℕ₃₂, base_indent : ℕ₃₂, have_base : 𝔹, builder : ArrayBuilder⟦String⟧) → () is
-		if scanner.reader.lookaheadUnicode() = TextReader.END_OF_TEXT then
-			return
-		end
-		indent :← scanner.peekLineIndent()
-		if scanner.isLineBlankAtPeek(indent) then
-			scanner.consumeBlankLine()
-			builder.append(“”)
-			collectBlockScalarLines(parent_indent, base_indent, have_base, builder)
-			return
-		end
-		if have_base ⩑ indent < base_indent then
-			return
-		end
-		if ¬ have_base ⩑ indent ≤ parent_indent then
-			return
-		end
-		effective_indent : ℕ₃₂ ← indent
-		if have_base then
-			effective_indent ← base_indent
-		end
-		scanner.skipNSpaces(effective_indent)
-		builder.append(scanner.readLineText())
-		collectBlockScalarLines(parent_indent, effective_indent, TRUE, builder)
-	end
-
-	method parsePlainScalar(in_flow : 𝔹) → YamlValue is
-		start :← scanner.reader.currentOffset()
-		readPlainScalarChars(in_flow, TRUE)
-		end_off :← scanner.reader.currentOffset()
-		text :← scanner.source.text(start, end_off).trimSpaces()
-		return YamlScalarClassifier.classifyPlainScalar(text)
-	end
-
-	method readPlainScalarChars(in_flow : 𝔹, prev_was_space : 𝔹) → () is
-		la :← scanner.reader.lookaheadUnicode()
-		if la = TextReader.END_OF_TEXT then
-			return
-		else
-			if isLineBreak(la) ⩒ (la = HASH ⩑ prev_was_space) ⩒ (in_flow ⩑ (isFlowEnd(la) ⩒ la = COLON)) then
-				return
-			end
-			scanner.advance()
-			readPlainScalarChars(in_flow, isSpaceOrTab(la))
-		end
-	end
-
-	method parseDoubleQuoted() → YamlValue is
-		scanner.advance()
-		return YamlScalar(readDoubleQuotedBody(“”))
-	end
-
-	method readDoubleQuotedBody(acc : String) → String is
-		la :← scanner.reader.lookaheadUnicode()
-		if la = TextReader.END_OF_TEXT then
-			return acc
-		else
-			if la = DQUOTE then
-				scanner.advance()
-				return acc
-			end
-			if la = BSLASH then
-				scanner.advance()
-				decoded :← decodeDoubleEscape()
-				return readDoubleQuotedBody(acc ⋅ decoded)
-			end
-			scanner.advance()
-			return readDoubleQuotedBody(acc ⋅ la)
-		end
-	end
-
-	method decodeDoubleEscape() → String is
-		la :← scanner.reader.lookaheadUnicode()
-		if la = TextReader.END_OF_TEXT then
-			return “\”
-		else
-			scanner.advance()
-			code :← letterEscapeCode(la)
-			if code ≥ 0 then
-				return “” ⋅ Unicode(code).toUnicode()
-			end
-			if la = BSLASH then
-				return “\”
-			end
-			if la = DQUOTE then
-				return “"”
-			end
-			if la = “/”.firstUnicode() then
-				return “/”
-			end
-			if la = “u”.firstUnicode() then
-				return “” ⋅ Unicode(readHex4()).toUnicode()
-			end
-			return “\” ⋅ la
-		end
-	end
-
-	function letterEscapeCode(la : 𝔸) → ℤ₃₂ ⁌
-		Returns the Unicode codepoint for a single-letter C-style escape
-		(<c>n</c>, <c>t</c>, <c>r</c>, <c>0</c>, <c>a</c>, <c>b</c>,
-		<c>f</c>, <c>v</c>, <c>e</c>), or <c>−1</c> if <c>la</c> is not one.
-	⁍ is
-		if la = “n”.firstUnicode() then
-			return 10
-		end
-		if la = “t”.firstUnicode() then
-			return 9
-		end
-		if la = “r”.firstUnicode() then
-			return 13
-		end
-		if la = “0”.firstUnicode() then
-			return 0
-		end
-		if la = “a”.firstUnicode() then
-			return 7
-		end
-		if la = “b”.firstUnicode() then
-			return 8
-		end
-		if la = “f”.firstUnicode() then
-			return 12
-		end
-		if la = “v”.firstUnicode() then
-			return 11
-		end
-		if la = “e”.firstUnicode() then
-			return 27
-		end
-		return −1
-	end
-
-	method readHex4() → ℤ₃₂ is
-		h1 :← readHexDigit()
-		h2 :← readHexDigit()
-		h3 :← readHexDigit()
-		h4 :← readHexDigit()
-		return (((h1 ⋅ 16) + h2) ⋅ 16 + h3) ⋅ 16 + h4
-	end
-
-	method readHexDigit() → ℤ₃₂ is
-		la :← scanner.reader.lookaheadUnicode()
-		if la = TextReader.END_OF_TEXT then
-			return 0
-		else
-			scanner.advance()
-			n :← Unicode(la).asInt()
-			if 48 ≤ n ⩑ n ≤ 57 then
-				return n − 48
-			end
-			if 97 ≤ n ⩑ n ≤ 102 then
-				return n − 87
-			end
-			if 65 ≤ n ⩑ n ≤ 70 then
-				return n − 55
-			end
-			return 0
-		end
-	end
-
-	method parseSingleQuoted() → YamlValue is
-		scanner.advance()
-		return YamlScalar(readSingleQuotedBody(“”))
-	end
-
-	method readSingleQuotedBody(acc : String) → String is
-		la :← scanner.reader.lookaheadUnicode()
-		if la = TextReader.END_OF_TEXT then
-			return acc
-		else
-			if la ≠ SQUOTE then
-				scanner.advance()
-				return readSingleQuotedBody(acc ⋅ la)
-			end
-			scanner.advance()
-			next :← scanner.reader.lookaheadUnicode()
-			if next = TextReader.END_OF_TEXT then
-				return acc
-			else
-				if next ≠ SQUOTE then
-					return acc
-				end
-				scanner.advance()
-				return readSingleQuotedBody(acc ⋅ “'”)
-			end
-		end
 	end
 
 end object
