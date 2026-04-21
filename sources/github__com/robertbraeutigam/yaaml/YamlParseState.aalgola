@@ -72,25 +72,18 @@ object YamlParseState ⁌
 		la :← reader.lookaheadUnicode()
 		if la = TextReader.END_OF_TEXT then
 			return YamlNull()
-		else
-			if la = LBRACKET ⩒ la = LBRACE then
-				v :← parseValue(FALSE)
-				finishLine()
-				skipBlankLines()
-				return v
-			end
-			if la = DQUOTE then
-				start_col :← current_col
-				candidate :← parseDoubleQuoted()
-				return maybeBlockMapping(start_col, candidate)
-			end
-			if la = SQUOTE then
-				start_col :← current_col
-				candidate :← parseSingleQuoted()
-				return maybeBlockMapping(start_col, candidate)
-			end
-			return parsePlainOrKey(current_col)
 		end
+		if la = LBRACKET ⩒ la = LBRACE then
+			v :← parseValue(FALSE)
+			finishLine()
+			skipBlankLines()
+			return v
+		end
+		if la = DQUOTE ⩒ la = SQUOTE then
+			start_col :← current_col
+			return maybeBlockMapping(start_col, parseValue(FALSE))
+		end
+		return parsePlainOrKey(current_col)
 	end
 
 	method maybeBlockMapping(indent : ℕ₃₂, candidate : YamlValue) → YamlValue is
@@ -117,10 +110,7 @@ object YamlParseState ⁌
 			if next = TextReader.END_OF_TEXT then
 				return TRUE
 			else
-				if next = SPACE ⩒ next = TAB ⩒ next = NEWLINE ⩒ next = CR then
-					return TRUE
-				end
-				return FALSE
+				return next = SPACE ⩒ next = TAB ⩒ next = NEWLINE ⩒ next = CR
 			end
 		end
 	end
@@ -129,8 +119,7 @@ object YamlParseState ⁌
 		start :← reader.currentOffset()
 		hit_colon :← readBlockPlainChars(FALSE)
 		end_off :← reader.currentOffset()
-		text :← source.text(start, end_off).trimSpaces()
-		classified :← classifyPlainScalar(text)
+		classified :← classifyPlainScalar(source.text(start, end_off).trimSpaces())
 		if hit_colon then
 			reader.readUnicode()
 			current_col ← current_col + 1
@@ -146,10 +135,7 @@ object YamlParseState ⁌
 		if la = TextReader.END_OF_TEXT then
 			return FALSE
 		else
-			if la = NEWLINE ⩒ la = CR then
-				return FALSE
-			end
-			if la = HASH ⩑ prev_was_space then
+			if la = NEWLINE ⩒ la = CR ⩒ (la = HASH ⩑ prev_was_space) then
 				return FALSE
 			end
 			if la = COLON then
@@ -170,8 +156,7 @@ object YamlParseState ⁌
 
 	method parseBlockMapping(indent : ℕ₃₂, first_key : YamlValue) → YamlMapping is
 		builder :← ArrayBuilder⟦YamlMappingEntry⟧()
-		first_value :← parseBlockMappingValue(indent)
-		builder.append(YamlMappingEntry(first_key, first_value))
+		builder.append(YamlMappingEntry(first_key, parseBlockMappingValue(indent)))
 		collectBlockMappingEntries(indent, builder)
 		return YamlMapping(builder.done())
 	end
@@ -188,32 +173,23 @@ object YamlParseState ⁌
 				return
 			end
 			key : YamlValue ← YamlNull()
-			if la = DQUOTE then
-				key ← parseDoubleQuoted()
-				skipInlineSpaces()
-				if ¬ isColonThenBreak() then
-					return
-				end
-			elseif la = SQUOTE then
-				key ← parseSingleQuoted()
+			if la = DQUOTE ⩒ la = SQUOTE then
+				key ← parseValue(FALSE)
 				skipInlineSpaces()
 				if ¬ isColonThenBreak() then
 					return
 				end
 			else
 				start :← reader.currentOffset()
-				hit_colon :← readBlockPlainChars(FALSE)
-				if ¬ hit_colon then
+				if ¬ readBlockPlainChars(FALSE) then
 					return
 				end
 				end_off :← reader.currentOffset()
-				text :← source.text(start, end_off).trimSpaces()
-				key ← classifyPlainScalar(text)
+				key ← classifyPlainScalar(source.text(start, end_off).trimSpaces())
 			end
 			reader.readUnicode()
 			current_col ← current_col + 1
-			value :← parseBlockMappingValue(indent)
-			builder.append(YamlMappingEntry(key, value))
+			builder.append(YamlMappingEntry(key, parseBlockMappingValue(indent)))
 			collectBlockMappingEntries(indent, builder)
 		end
 	end
@@ -232,18 +208,10 @@ object YamlParseState ⁌
 					return YamlNull()
 				else
 					if la2 = NEWLINE ⩒ la2 = CR ⩒ la2 = HASH then
-						finishLine()
-						skipBlankLines()
-						if current_col > indent then
-							return parseNode()
-						end
-						return YamlNull()
+						return continueOrNull(indent)
 					end
-					if la2 = PIPE then
-						return parseBlockScalar(indent, TRUE)
-					end
-					if la2 = GREATER then
-						return parseBlockScalar(indent, FALSE)
+					if la2 = PIPE ⩒ la2 = GREATER then
+						return parseBlockScalar(indent, la2 = PIPE)
 					end
 					v :← parseValue(FALSE)
 					finishLine()
@@ -252,12 +220,7 @@ object YamlParseState ⁌
 				end
 			end
 			if la = NEWLINE ⩒ la = CR then
-				finishLine()
-				skipBlankLines()
-				if current_col > indent then
-					return parseNode()
-				end
-				return YamlNull()
+				return continueOrNull(indent)
 			end
 			return YamlNull()
 		end
@@ -267,21 +230,20 @@ object YamlParseState ⁌
 		la :← reader.lookaheadUnicode()
 		if la = TextReader.END_OF_TEXT then
 			return YamlNull()
-		else
-			if la = LBRACKET then
-				return parseFlowSequence()
-			end
-			if la = LBRACE then
-				return parseFlowMapping()
-			end
-			if la = DQUOTE then
-				return parseDoubleQuoted()
-			end
-			if la = SQUOTE then
-				return parseSingleQuoted()
-			end
-			return parsePlainScalar(in_flow)
 		end
+		if la = LBRACKET then
+			return parseFlowSequence()
+		end
+		if la = LBRACE then
+			return parseFlowMapping()
+		end
+		if la = DQUOTE then
+			return parseDoubleQuoted()
+		end
+		if la = SQUOTE then
+			return parseSingleQuoted()
+		end
+		return parsePlainScalar(in_flow)
 	end
 
 	method parseFlowSequence() → YamlSequence is
@@ -301,8 +263,7 @@ object YamlParseState ⁌
 				reader.readUnicode()
 				return
 			end
-			value :← parseValue(TRUE)
-			builder.append(value)
+			builder.append(parseValue(TRUE))
 			skipWhitespaceAndComments()
 			sep :← reader.lookaheadUnicode()
 			if sep = TextReader.END_OF_TEXT then
@@ -339,9 +300,7 @@ object YamlParseState ⁌
 			skipWhitespaceAndComments()
 			colon :← reader.lookaheadUnicode()
 			value : YamlValue ← YamlNull()
-			if colon = TextReader.END_OF_TEXT then
-				¶ malformed — still record a null-valued entry
-			else
+			if colon ≠ TextReader.END_OF_TEXT then
 				if colon = COLON then
 					reader.readUnicode()
 					skipWhitespaceAndComments()
@@ -376,10 +335,7 @@ object YamlParseState ⁌
 			if next = TextReader.END_OF_TEXT then
 				return TRUE
 			else
-				if next = SPACE ⩒ next = TAB ⩒ next = NEWLINE ⩒ next = CR then
-					return TRUE
-				end
-				return FALSE
+				return next = SPACE ⩒ next = TAB ⩒ next = NEWLINE ⩒ next = CR
 			end
 		end
 	end
@@ -391,16 +347,12 @@ object YamlParseState ⁌
 	end
 
 	method collectBlockSequenceItems(indent : ℕ₃₂, builder : ArrayBuilder⟦YamlValue⟧) → () is
-		if ¬ isBlockSequenceStart() then
-			return
-		end
-		if current_col ≠ indent then
+		if ¬ isBlockSequenceStart() ⩒ current_col ≠ indent then
 			return
 		end
 		reader.readUnicode()
 		current_col ← current_col + 1
-		value :← parseBlockItemValue(indent)
-		builder.append(value)
+		builder.append(parseBlockItemValue(indent))
 		collectBlockSequenceItems(indent, builder)
 	end
 
@@ -418,25 +370,26 @@ object YamlParseState ⁌
 					return YamlNull()
 				else
 					if la2 = NEWLINE ⩒ la2 = CR ⩒ la2 = HASH then
-						return emptyItemContinuation(parent_indent)
+						return continueOrNull(parent_indent)
 					end
-					if la2 = PIPE then
-						return parseBlockScalar(parent_indent, TRUE)
-					end
-					if la2 = GREATER then
-						return parseBlockScalar(parent_indent, FALSE)
+					if la2 = PIPE ⩒ la2 = GREATER then
+						return parseBlockScalar(parent_indent, la2 = PIPE)
 					end
 					return parseNode()
 				end
 			end
 			if la = NEWLINE ⩒ la = CR then
-				return emptyItemContinuation(parent_indent)
+				return continueOrNull(parent_indent)
 			end
 			return YamlNull()
 		end
 	end
 
-	method emptyItemContinuation(parent_indent : ℕ₃₂) → YamlValue is
+	method continueOrNull(parent_indent : ℕ₃₂) → YamlValue ⁌
+		Finish the current line, skip blanks, then parse a node if the next
+		content sits deeper than <c>parent_indent</c>; otherwise the value is
+		empty. Shared by block sequence items and block mapping values.
+	⁍ is
 		finishLine()
 		skipBlankLines()
 		if current_col > parent_indent then
@@ -458,6 +411,31 @@ object YamlParseState ⁌
 		end
 	end
 
+	method consumeLineBreak() → () ⁌
+		Consume one line break at the current position (<c>NEWLINE</c>,
+		<c>CR</c>, or <c>CR</c>+<c>NEWLINE</c>) and reset the column to 0.
+		No-op on any other character, including end-of-text.
+	⁍ is
+		la :← reader.lookaheadUnicode()
+		if la = TextReader.END_OF_TEXT then
+			return
+		else
+			if la = NEWLINE then
+				reader.readUnicode()
+				current_col ← 0
+			elseif la = CR then
+				reader.readUnicode()
+				next :← reader.lookaheadUnicode()
+				if next ≠ TextReader.END_OF_TEXT then
+					if next = NEWLINE then
+						reader.readUnicode()
+					end
+				end
+				current_col ← 0
+			end
+		end
+	end
+
 	method finishLine() → () is
 		la :← reader.lookaheadUnicode()
 		if la = TextReader.END_OF_TEXT then
@@ -467,28 +445,11 @@ object YamlParseState ⁌
 				reader.readUnicode()
 				current_col ← current_col + 1
 				finishLine()
-				return
-			end
-			if la = HASH then
+			elseif la = HASH then
 				skipToEndOfLine()
 				finishLine()
-				return
-			end
-			if la = NEWLINE then
-				reader.readUnicode()
-				current_col ← 0
-				return
-			end
-			if la = CR then
-				reader.readUnicode()
-				next :← reader.lookaheadUnicode()
-				if next ≠ TextReader.END_OF_TEXT then
-					if next = NEWLINE then
-						reader.readUnicode()
-					end
-				end
-				current_col ← 0
-				return
+			elseif la = NEWLINE ⩒ la = CR then
+				consumeLineBreak()
 			end
 		end
 	end
@@ -502,27 +463,10 @@ object YamlParseState ⁌
 				reader.readUnicode()
 				current_col ← current_col + 1
 				skipBlankLines()
-				return
-			end
-			if la = NEWLINE then
-				reader.readUnicode()
-				current_col ← 0
+			elseif la = NEWLINE ⩒ la = CR then
+				consumeLineBreak()
 				skipBlankLines()
-				return
-			end
-			if la = CR then
-				reader.readUnicode()
-				next :← reader.lookaheadUnicode()
-				if next ≠ TextReader.END_OF_TEXT then
-					if next = NEWLINE then
-						reader.readUnicode()
-					end
-				end
-				current_col ← 0
-				skipBlankLines()
-				return
-			end
-			if la = HASH then
+			elseif la = HASH then
 				skipToEndOfLine()
 				skipBlankLines()
 			end
@@ -560,14 +504,12 @@ object YamlParseState ⁌
 		if la = TextReader.END_OF_TEXT then
 			return 0
 		else
-			if la = DASH then
+			if la = DASH ⩒ la = PLUS then
 				reader.readUnicode()
 				current_col ← current_col + 1
-				return 1
-			end
-			if la = PLUS then
-				reader.readUnicode()
-				current_col ← current_col + 1
+				if la = DASH then
+					return 1
+				end
 				return 2
 			end
 			return 0
@@ -575,36 +517,29 @@ object YamlParseState ⁌
 	end
 
 	method collectBlockScalarLines(parent_indent : ℕ₃₂, base_indent : ℕ₃₂, have_base : 𝔹, builder : ArrayBuilder⟦String⟧) → () is
-		la :← reader.lookaheadUnicode()
-		if la = TextReader.END_OF_TEXT then
+		if reader.lookaheadUnicode() = TextReader.END_OF_TEXT then
 			return
-		else
-			indent :← peekLineIndent()
-			blank :← isLineBlankAtPeek(indent)
-			if blank then
-				consumeBlankLine()
-				builder.append(“”)
-				collectBlockScalarLines(parent_indent, base_indent, have_base, builder)
-				return
-			end
-			if ¬ have_base then
-				if indent ≤ parent_indent then
-					return
-				end
-				skipNSpaces(indent)
-				line_text :← readLineText()
-				builder.append(line_text)
-				collectBlockScalarLines(parent_indent, indent, TRUE, builder)
-				return
-			end
-			if indent < base_indent then
-				return
-			end
-			skipNSpaces(base_indent)
-			line_text :← readLineText()
-			builder.append(line_text)
-			collectBlockScalarLines(parent_indent, base_indent, have_base, builder)
 		end
+		indent :← peekLineIndent()
+		if isLineBlankAtPeek(indent) then
+			consumeBlankLine()
+			builder.append(“”)
+			collectBlockScalarLines(parent_indent, base_indent, have_base, builder)
+			return
+		end
+		if have_base ⩑ indent < base_indent then
+			return
+		end
+		if ¬ have_base ⩑ indent ≤ parent_indent then
+			return
+		end
+		effective_indent : ℕ₃₂ ← indent
+		if have_base then
+			effective_indent ← base_indent
+		end
+		skipNSpaces(effective_indent)
+		builder.append(readLineText())
+		collectBlockScalarLines(parent_indent, effective_indent, TRUE, builder)
 	end
 
 	method peekLineIndent() → ℕ₃₂ is
@@ -628,10 +563,7 @@ object YamlParseState ⁌
 		if la = TextReader.END_OF_TEXT then
 			return TRUE
 		else
-			if la = NEWLINE ⩒ la = CR then
-				return TRUE
-			end
-			return FALSE
+			return la = NEWLINE ⩒ la = CR
 		end
 	end
 
@@ -640,25 +572,13 @@ object YamlParseState ⁌
 		if la = TextReader.END_OF_TEXT then
 			return
 		else
-			if la = NEWLINE then
+			if la = NEWLINE ⩒ la = CR then
+				consumeLineBreak()
+			else
 				reader.readUnicode()
-				current_col ← 0
-				return
+				current_col ← current_col + 1
+				consumeBlankLine()
 			end
-			if la = CR then
-				reader.readUnicode()
-				next :← reader.lookaheadUnicode()
-				if next ≠ TextReader.END_OF_TEXT then
-					if next = NEWLINE then
-						reader.readUnicode()
-					end
-				end
-				current_col ← 0
-				return
-			end
-			reader.readUnicode()
-			current_col ← current_col + 1
-			consumeBlankLine()
 		end
 	end
 
@@ -682,24 +602,8 @@ object YamlParseState ⁌
 		start :← reader.currentOffset()
 		readUntilNewline()
 		end_off :← reader.currentOffset()
-		text :← source.text(start, end_off)
-		la :← reader.lookaheadUnicode()
-		if la ≠ TextReader.END_OF_TEXT then
-			if la = NEWLINE then
-				reader.readUnicode()
-				current_col ← 0
-			elseif la = CR then
-				reader.readUnicode()
-				next :← reader.lookaheadUnicode()
-				if next ≠ TextReader.END_OF_TEXT then
-					if next = NEWLINE then
-						reader.readUnicode()
-					end
-				end
-				current_col ← 0
-			end
-		end
-		return text
+		consumeLineBreak()
+		return source.text(start, end_off)
 	end
 
 	method readUntilNewline() → () is
@@ -800,13 +704,7 @@ object YamlParseState ⁌
 		if la = TextReader.END_OF_TEXT then
 			return
 		else
-			if la = NEWLINE ⩒ la = CR then
-				return
-			end
-			if la = HASH ⩑ prev_was_space then
-				return
-			end
-			if in_flow ⩑ (la = COMMA ⩒ la = RBRACKET ⩒ la = RBRACE ⩒ la = COLON) then
+			if la = NEWLINE ⩒ la = CR ⩒ (la = HASH ⩑ prev_was_space) ⩒ (in_flow ⩑ (la = COMMA ⩒ la = RBRACKET ⩒ la = RBRACE ⩒ la = COLON)) then
 				return
 			end
 			reader.readUnicode()
@@ -925,21 +823,21 @@ object YamlParseState ⁌
 		if la = TextReader.END_OF_TEXT then
 			return acc
 		else
-			if la = SQUOTE then
+			if la ≠ SQUOTE then
 				reader.readUnicode()
-				next :← reader.lookaheadUnicode()
-				if next = TextReader.END_OF_TEXT then
-					return acc
-				else
-					if next = SQUOTE then
-						reader.readUnicode()
-						return readSingleQuotedBody(acc ⋅ “'”)
-					end
-					return acc
-				end
+				return readSingleQuotedBody(acc ⋅ la)
 			end
 			reader.readUnicode()
-			return readSingleQuotedBody(acc ⋅ la)
+			next :← reader.lookaheadUnicode()
+			if next = TextReader.END_OF_TEXT then
+				return acc
+			else
+				if next ≠ SQUOTE then
+					return acc
+				end
+				reader.readUnicode()
+				return readSingleQuotedBody(acc ⋅ “'”)
+			end
 		end
 	end
 
@@ -951,9 +849,7 @@ object YamlParseState ⁌
 			if la = SPACE ⩒ la = TAB ⩒ la = NEWLINE ⩒ la = CR then
 				reader.readUnicode()
 				skipWhitespaceAndComments()
-				return
-			end
-			if la = HASH then
+			elseif la = HASH then
 				skipToEndOfLine()
 				skipWhitespaceAndComments()
 			end
