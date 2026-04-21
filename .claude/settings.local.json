@@ -9,7 +9,17 @@
       "Bash(~/.claude/skills/aalgola/bin/aairs-sig //aalgola.org/core/intrinsic/string/)",
       "Bash(~/.claude/skills/aalgola/bin/aairs-sig String)",
       "Bash(git add *)",
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "Read(//home/robert/.claude/skills/**)",
+      "Read(//home/robert/.claude/plugins/**)",
+      "Read(//home/robert/.claude/**)",
+      "WebFetch(domain:aalgolab.com)",
+      "Bash(curl -sSk http://aalgolab.com/de/punkt/index.html)",
+      "Bash(mkdir -p /tmp/aalgola_docs)",
+      "Read(//tmp/**)",
+      "Bash(curl -sSk http://aalgolab.com/de/punkt/index.html -o index.html)",
+      "Bash(curl -sSk http://aalgolab.com/de/punkt/__TRACKED_VAR__/index.html)",
+      "Bash(python3 *)"
     ]
   }
 }
