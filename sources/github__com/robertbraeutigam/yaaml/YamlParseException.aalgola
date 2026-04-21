@@ -1,0 +1,37 @@
+namespace //github.com/robertbraeutigam/yaaml/
+
+import //aalgola.org/core/exception/Exception
+
+⟦public⟧
+object YamlParseException extends Exception ⁌
+	Signals that the YAML input is malformed. Carries the 1-based line
+	and column of the offending character so callers can report the
+	position of the failure.
+⁍ is
+
+	⟦private⟧
+	⟦final⟧
+	line_number : ℕ₃₂
+
+	⟦private⟧
+	⟦final⟧
+	column_number : ℕ₃₂
+
+	⟦public⟧
+	init (line_number : ℕ₃₂, column_number : ℕ₃₂, message : String) is
+		super.init(message)
+		self.line_number ← line_number
+		self.column_number ← column_number
+	end
+
+	⟦public⟧
+	method line() → ℕ₃₂ is
+		return line_number
+	end
+
+	⟦public⟧
+	method column() → ℕ₃₂ is
+		return column_number
+	end
+
+end object

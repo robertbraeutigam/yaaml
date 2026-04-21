@@ -38,7 +38,7 @@ object YamlQuotedScalarReader ⁌
 	method readDoubleQuotedBody(acc : String) → String is
 		la :← scanner.reader.lookaheadUnicode()
 		if la = TextReader.END_OF_TEXT then
-			return acc
+			throw YamlParseException(scanner.currentLine(), scanner.currentColumn() + 1, “unterminated double-quoted scalar”)
 		else
 			if la = YamlChars.DQUOTE then
 				scanner.advance()
@@ -146,7 +146,7 @@ object YamlQuotedScalarReader ⁌
 	method readSingleQuotedBody(acc : String) → String is
 		la :← scanner.reader.lookaheadUnicode()
 		if la = TextReader.END_OF_TEXT then
-			return acc
+			throw YamlParseException(scanner.currentLine(), scanner.currentColumn() + 1, “unterminated single-quoted scalar”)
 		else
 			if la ≠ YamlChars.SQUOTE then
 				scanner.advance()

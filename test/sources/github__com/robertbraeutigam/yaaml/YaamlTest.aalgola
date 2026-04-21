@@ -545,4 +545,61 @@ test YaamlTest is
 		assert result.display() = expected
 	end
 
+	test “unterminated double-quoted scalar throws with position” is
+		try
+			YamlParser.parse(“"hello”)
+			assert FALSE
+		catch e : YamlParseException do
+			assert e.line() = 1
+			assert e.column() = 7
+			assert e.message() = “unterminated double-quoted scalar”
+		end
+	end
+
+	test “unterminated single-quoted scalar throws with position” is
+		try
+			YamlParser.parse(“'hello”)
+			assert FALSE
+		catch e : YamlParseException do
+			assert e.line() = 1
+			assert e.column() = 7
+			assert e.message() = “unterminated single-quoted scalar”
+		end
+	end
+
+	test “unterminated flow sequence throws with position” is
+		try
+			YamlParser.parse(“[a, b”)
+			assert FALSE
+		catch e : YamlParseException do
+			assert e.line() = 1
+			assert e.column() = 6
+			assert e.message() = “unterminated flow sequence”
+		end
+	end
+
+	test “unterminated flow mapping throws with position” is
+		try
+			YamlParser.parse(“{a: 1”)
+			assert FALSE
+		catch e : YamlParseException do
+			assert e.line() = 1
+			assert e.column() = 6
+			assert e.message() = “unterminated flow mapping”
+		end
+	end
+
+	test “trailing content after document throws with position” is
+		nl :← Unicode(10).toUnicode()
+		input :← “42” ⋅ nl ⋅ “bogus”
+		try
+			YamlParser.parse(input)
+			assert FALSE
+		catch e : YamlParseException do
+			assert e.line() = 2
+			assert e.column() = 1
+			assert e.message() = “unexpected content after document”
+		end
+	end
+
 end

@@ -25,7 +25,27 @@
       "Read(//home/robert/**)",
       "Bash(find / -name \"*.aalgola\")",
       "Bash(find / -path /proc -prune -o -name \"TextReader.aalgola\" -print)",
-      "Bash(find / -path /proc -prune -o -name \"*.jar\" -path \"*aalgola*\" -print)"
+      "Bash(find / -path /proc -prune -o -name \"*.jar\" -path \"*aalgola*\" -print)",
+      "Bash(xargs -I{} sh -c 'unzip -l \"{}\" 2>/dev/null | grep -l \"Assert\\\\|TestAssert\" ')",
+      "Bash(xargs -I{} sh -c 'unzip -l \"{}\" 2>/dev/null | grep \"Assert.*aairs\\\\|test.*aairs\" ')",
+      "Bash(unzip -oq /home/robert/aalgola/aadk/aadk-linux-java-0.1.aadk/modules/org-aalgola-aart.jar -d /tmp/aart/org_aart)",
+      "Bash(unzip -l /home/robert/aalgola/aadk/aadk-linux-java-0.1.aadk/modules/org-aalgola-aart.jar)",
+      "Bash(xargs -I{} sh -c 'unzip -l \"{}\" 2>/dev/null | awk -v j=\"{}\" \"{print j \\\\\"|\\\\\" \\\\$0}\"')",
+      "Bash(unzip -oq /home/robert/aalgola/aadk/aadk-linux-java-0.1.aadk/modules/org-aalgola-util.jar -d /tmp/aart/util)",
+      "Bash(javap -p /tmp/aart/util/org/aalgola/util/io/java/EmptyInputStream.class)",
+      "Bash(javap -p /tmp/aart/aart_module/aalgola__org/core/io/input/EmptyInputStream.class)",
+      "Bash(javap -p /tmp/aart/aart_module/aalgola__org/core/io/input/InputStream.class)",
+      "Bash(javap -p -c /tmp/aart/org_aart/aalgola__org/aart/system/java/booting/aalgola/AalgolaApplicationRunner.class)",
+      "Bash(javap -p /tmp/aart/aart_module/aalgola__org/core/io/text/standard/StandardTextInputStream.class)",
+      "Bash(javap -p /tmp/aart/util/org/aalgola/util/unicode/io/input/Utf8StreamReader.class)",
+      "Bash(javap -p /tmp/aart/util/org/aalgola/util/unicode/io/input/ByteStreamReader.class)",
+      "Bash(javap -p /tmp/aart/util/org/aalgola/util/unicode/io/input/StringReader.class)",
+      "Bash(javap -p /tmp/aart/org_aart/aalgola__org/aart/system/java/booting/Aalgola.class)",
+      "Bash(javap -p /tmp/aart/org_aart/aalgola__org/aart/system/java/booting/aalgola/AalgolaApplicationFrame.class)",
+      "Bash(/home/robert/bin/aalgolac --version)",
+      "Bash(unzip -oq /home/robert/aalgola/aadk/aadk-linux-java-0.1.aadk/modules/natives/aalgola__org-aart-system-java.jar -d /tmp/aart/native)",
+      "Bash(xargs -I{} head -n 2 {})",
+      "Bash(xargs -I{} head -2 \"{}\")"
     ]
   }
 }

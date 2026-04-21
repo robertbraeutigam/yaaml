@@ -27,6 +27,10 @@ object YamlParseState ⁌
 		scanner.skipBlankLines()
 		value :← parseNode()
 		scanner.skipWhitespaceAndComments()
+		trailing :← scanner.reader.lookaheadUnicode()
+		if trailing ≠ TextReader.END_OF_TEXT then
+			throw YamlParseException(scanner.currentLine(), scanner.currentColumn() + 1, “unexpected content after document”)
+		end
 		return value
 	end
 
@@ -220,7 +224,7 @@ object YamlParseState ⁌
 		scanner.skipWhitespaceAndComments()
 		la :← scanner.reader.lookaheadUnicode()
 		if la = TextReader.END_OF_TEXT then
-			return
+			throw YamlParseException(scanner.currentLine(), scanner.currentColumn() + 1, “unterminated flow sequence”)
 		else
 			if la = YamlChars.RBRACKET then
 				scanner.advance()
@@ -230,7 +234,7 @@ object YamlParseState ⁌
 			scanner.skipWhitespaceAndComments()
 			sep :← scanner.reader.lookaheadUnicode()
 			if sep = TextReader.END_OF_TEXT then
-				return
+				throw YamlParseException(scanner.currentLine(), scanner.currentColumn() + 1, “unterminated flow sequence”)
 			else
 				if sep = YamlChars.COMMA then
 					scanner.advance()
@@ -253,7 +257,7 @@ object YamlParseState ⁌
 		scanner.skipWhitespaceAndComments()
 		la :← scanner.reader.lookaheadUnicode()
 		if la = TextReader.END_OF_TEXT then
-			return
+			throw YamlParseException(scanner.currentLine(), scanner.currentColumn() + 1, “unterminated flow mapping”)
 		else
 			if la = YamlChars.RBRACE then
 				scanner.advance()
@@ -274,7 +278,7 @@ object YamlParseState ⁌
 			scanner.skipWhitespaceAndComments()
 			sep :← scanner.reader.lookaheadUnicode()
 			if sep = TextReader.END_OF_TEXT then
-				return
+				throw YamlParseException(scanner.currentLine(), scanner.currentColumn() + 1, “unterminated flow mapping”)
 			else
 				if sep = YamlChars.COMMA then
 					scanner.advance()

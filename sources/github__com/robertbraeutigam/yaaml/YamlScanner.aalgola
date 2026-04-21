@@ -33,16 +33,28 @@ object YamlScanner ⁌
 		it to the right value before a caller reads it.
 	⁍
 
+	⟦private⟧
+	line : ℕ₃₂ ⁌
+		1-based line number of the reader's current position. Incremented
+		by <c>advance</c> whenever a line break is consumed.
+	⁍
+
 	⟦public⟧
 	init (input : String) is
 		self.source ← StringSource(input)
 		self.reader ← source.sourceReader()
 		self.col ← 0
+		self.line ← 1
 	end
 
 	⟦public⟧
 	method currentColumn() → ℕ₃₂ is
 		return col
+	end
+
+	⟦public⟧
+	method currentLine() → ℕ₃₂ is
+		return line
 	end
 
 	⟦public⟧
@@ -59,6 +71,7 @@ object YamlScanner ⁌
 			reader.readUnicode()
 			if la = YamlChars.NEWLINE then
 				col ← 0
+				line ← line + 1
 			elseif la = YamlChars.CR then
 				next :← reader.lookaheadUnicode()
 				if next ≠ TextReader.END_OF_TEXT then
@@ -67,6 +80,7 @@ object YamlScanner ⁌
 					end
 				end
 				col ← 0
+				line ← line + 1
 			else
 				col ← col + 1
 			end
