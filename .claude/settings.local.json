@@ -45,7 +45,9 @@
       "Bash(/home/robert/bin/aalgolac --version)",
       "Bash(unzip -oq /home/robert/aalgola/aadk/aadk-linux-java-0.1.aadk/modules/natives/aalgola__org-aart-system-java.jar -d /tmp/aart/native)",
       "Bash(xargs -I{} head -n 2 {})",
-      "Bash(xargs -I{} head -2 \"{}\")"
+      "Bash(xargs -I{} head -2 \"{}\")",
+      "Bash(unzip -l /home/robert/aalgola/aadk/aadk-linux-java-0.1.aadk/modules/aalgola__org-aart.jar)",
+      "Bash(unzip *)"
     ]
   }
 }
